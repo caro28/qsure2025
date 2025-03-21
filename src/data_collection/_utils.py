@@ -55,13 +55,16 @@ def clean_brand_name(token: str) -> str:
         return ""
     # Normalize the token using NFKC
     token = unicodedata.normalize('NFKC', token)
-    # Replace non-ASCII (non-Roman) characters using regex (keep only Roman letters and spaces)
     # This regular expression will allow only letters a-z, A-Z, and spaces
-    token = re.sub(r'[^a-zA-Z ]', '', token)
+    # token = re.sub(r'[^a-zA-Z ]', '', token)
+    # remove punctuation
+    token = token.translate(str.maketrans('', '', string.punctuation))
     # Strip leading and trailing whitespace
     token = token.strip()
     # Convert to lowercase
     token = token.lower()
+    # remove internal whitespace
+    token = token.replace(" ", "")
     return token
 
 

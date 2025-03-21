@@ -122,7 +122,7 @@ def get_levenshtein_distances(ref_names: Set, op_names: Set) -> List:
 
     # # Compute Levenshtein distance for every combination
     # for word1 in tqdm(op_names, desc="Computing distances"):
-    #     distances.extend([Levenshtein.distance(word1, word2) for word2 in ref_names])
+    #     distances.extend([(word1, word2, Levenshtein.distance(word1, word2)) for word2 in ref_names])
 
     # compute and log distances around a threshold
     for word1 in tqdm(op_names, desc="Computing distances"):
