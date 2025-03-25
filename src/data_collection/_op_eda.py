@@ -120,18 +120,18 @@ def get_ref_drug_data():
 def get_levenshtein_distances(ref_names: Set, op_names: Set) -> List:
     distances = []
 
-    # # Compute Levenshtein distance for every combination
-    # for word1 in tqdm(op_names, desc="Computing distances"):
-    #     distances.extend([(word1, word2, Levenshtein.distance(word1, word2)) for word2 in ref_names])
-
-    # compute and log distances around a threshold
+    # Compute Levenshtein distance for every combination
     for word1 in tqdm(op_names, desc="Computing distances"):
-        results = [
-            (word1, word2, dist)
-            for word2 in ref_names
-            if (dist := Levenshtein.distance(word1, word2)) < 7
-        ]
-        distances.extend(results)
+        distances.extend([Levenshtein.distance(word1, word2) for word2 in ref_names])
+
+    # # compute and log distances around a threshold
+    # for word1 in tqdm(op_names, desc="Computing distances"):
+    #     results = [
+    #         (word1, word2, dist)
+    #         for word2 in ref_names
+    #         if (dist := Levenshtein.distance(word1, word2)) < 7
+    #     ]
+    #     distances.extend(results)
 
     # # Now print the results
     # for word1, word2, dist in distances:
@@ -160,23 +160,24 @@ def runner(dataset):
     ref_drug_data = get_ref_drug_data()
     print(f"Summary statistics on Ref length of all drug names:\n{pd.Series(ref_drug_data['len_all_drug_names']).describe()}")
     print(f"Number of all Ref drug names: {len(ref_drug_data['all_drug_names'])}")
-    # plot_save_violin(
-    #     datalist=ref_drug_data["len_all_drug_names"],
-    #     fileout="data/Ref_Drug_Lengths_2013-2023_10k.png",
-    #     xlabel="Number Characters",
-    #     title="Lengths of All Reference Drug Names (2013-2023, 10k sample)",
-    #     xtick_step=5
-    # )
+    plot_save_violin(
+        datalist=ref_drug_data["len_all_drug_names"],
+        fileout="data/Ref_Drug_Lengths_2013-2023.png",
+        xlabel="Number Characters",
+        title="Lengths of All Reference Drug Names (2013-2023)",
+        xtick_step=5
+    )
 
     # uniques_distances = get_levenshtein_distances(ref_drug_data["unique_drug_names"], op_drug_data["unique_drug_names"])
     all_distances = get_levenshtein_distances(ref_drug_data["all_drug_names"], op_drug_data["all_drug_names"])
-    # plot_save_violin(
-    #     datalist=all_distances,
-    #     fileout="data/levenshtein_distances_2013-2023_Gnrl_10k.png",
-    #     xlabel="Levenshtein Distance",
-    #     title="Levenshtein Distances: OP Gnrl and Ref Drug Names (all, 10k sample, 2013-2023)",
-    #     xtick_step=5
-    # )
+    import ipdb; ipdb.set_trace()
+    plot_save_violin(
+        datalist=all_distances,
+        fileout="data/levenshtein_distances_2013-2023_Gnrl_10k.png",
+        xlabel="Levenshtein Distance",
+        title="Levenshtein Distances: OP Gnrl and Ref Drug Names (all, 10k sample, 2013-2023)",
+        xtick_step=5
+    )
 
     logger.info("Length of distances: %s", len(all_distances))
 
