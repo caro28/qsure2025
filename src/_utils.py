@@ -199,7 +199,7 @@ def timer(func):
     return wrapper
 
 
-def get_drug_columns(df: pd.DataFrame) -> List[str]:
+def get_op_drug_columns(df: pd.DataFrame) -> List[str]:
     """Get columns that contain drug names, case-insensitive"""
     prefix = "name_of_drug_or_biological_or_device_or_medical_supply_"
     return [col for col in df.columns if col.lower().startswith(prefix.lower())]
