@@ -169,3 +169,31 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+.DS_Store
+data/logs/
+data/reference/general_payments_2023/
+data/reference/all_datastore_uuids.json
+data/raw/
+data/sample/
+openpayments.md
+2023_general_payments_metadata.json
+medicare_data_2013-2022_full.json
+medicare_data_2013-2022.json
+openpayments_api_schema.jsonl.json
+Untitled.ipynb
+data/10ksample_dist1.csv
+data/10ksample_dist2.csv
+data/10ksample_dist3.csv
+data/levenshtein_distances_2013-2023_Gnrl_100k_uniques.png
+data/levenshtein_distances_2013-2023_Rsrch_100k.png
+data/OP_Gnrl_Drug_Lengths_2013-2023_100k.png
+data/OP_Rsrch_Drug_Lengths_2013-2023_100k.png
+data/Ref_Drug_Lengths_2013-2023_100k.png
+src/data_collection/general_SAS_code.py
+src/data_collection/General_v1.sas
+src/data_collection/medicare_api_filter_doc.md
+src/data_collection/Research_v3.sas
+src/data_collection/_op_get_recordids_drugcols.py
+src/data_collection/tests/test_op_get_recordids_drugcols_csv.py
+data/reference/drug_data.json
+data/ref_names_not_found.csv
