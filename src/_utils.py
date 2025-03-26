@@ -55,8 +55,6 @@ def clean_brand_name(token: str) -> str:
         return ""
     # Normalize the token using NFKC
     token = unicodedata.normalize('NFKC', token)
-    # This regular expression will allow only letters a-z, A-Z, and spaces
-    # token = re.sub(r'[^a-zA-Z ]', '', token)
     # remove punctuation
     token = token.translate(str.maketrans('', '', string.punctuation))
     # Strip leading and trailing whitespace
@@ -69,17 +67,23 @@ def clean_brand_name(token: str) -> str:
 
 
 def clean_generic_name(token: str) -> str:
-    """Apply the cleaning from clean_brand_name and then remove trailing PO, IV, IM, SUBQ"""
-    token = clean_brand_name(token)
-
-    # Define trailing substrings to remove (already lowercased)
-    trailing_tokens = [" po", " iv", " im", " subq"]
+    # Normalize the token using NFKC
+    token = unicodedata.normalize('NFKC', token)
+    # Strip leading and trailing whitespace
+    token = token.strip()
+    # Define trailing substrings to remove
+    trailing_tokens = [" Y PO", " PO", " IV", " IM", " SUBQ"]
     # Remove any trailing substring if present
     for trailing in trailing_tokens:
         if token.endswith(trailing):
             token = token[:-len(trailing)]
             token = token.strip()  # Strip again if any extra spaces remain
-            
+    # remove any trailing spaces
+    token = token.strip()
+    # Convert to lowercase
+    token = token.lower()
+    # remove internal whitespace
+    token = token.replace(" ", "")
     return token
 
 
