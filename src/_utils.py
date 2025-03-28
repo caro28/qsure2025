@@ -293,64 +293,50 @@ def concatenate_chunks(chunks_dir, fileout):
     """
     # Get all chunk files
     chunks = os.listdir(chunks_dir)
-    
+
+    # If no chunks exist, create empty output file with headers
+    if not chunks:
+        pd.DataFrame().to_csv(fileout, index=False)
+        return
+
+    rows_per_chunk = 0
     # Write first chunk with header
-    pd.read_csv(os.path.join(chunks_dir, chunks[0])).to_csv(fileout, index=False)
+    logger.info(f"Processing file {os.path.join(chunks_dir, chunks[0])}")
+    df = pd.read_csv(os.path.join(chunks_dir, chunks[0]), encoding='latin-1')
+    rows_per_chunk = len(df)
+    df.to_csv(fileout, index=False)
     
     # Append all other chunks without headers
-    for chunk in chunks[1:]:
-        pd.read_csv(os.path.join(chunks_dir, chunk)).to_csv(
-            fileout, 
-            mode='a', 
-            header=False, 
-            index=False
-        )
+    for idx, chunk in enumerate(chunks[1:]):
+        logger.info(f"Processing file {os.path.join(chunks_dir, chunks[idx+1])}")
+        df = pd.read_csv(os.path.join(chunks_dir, chunk), encoding='latin-1')
+        rows_per_chunk += len(df)
+        df.to_csv(fileout, mode='a', header=False, index=False)
+    logger.info(f"Finished concatenating {rows_per_chunk} rows")
+    assert rows_per_chunk == len(pd.read_csv(fileout, encoding='latin-1'))
 
 
-# TODO: this is broken - fix
-def find_matches(idx, row, drug_cols, drug_names):
-    row_idx = []
-    matched_rows = 0
-    # iterate through drug_cols
-    for col in drug_cols:
-        drug_name = str(row[col])
-        if pd.isna(drug_name) or drug_name == 'nan':
-            continue
-        elif drug_name == '':
-            continue
-        # Apply clean_brand_name and then check against drug_names
-        drug_name = clean_brand_name(drug_name)
-        for tgt_name in drug_names:
-            if drug_name == tgt_name:
-                row_idx.append(idx)
-                matched_rows += 1
-                break  # Break out of tgt_name loop once we find a match
-        if drug_name == tgt_name:  # If we found a match
-            break  # Break out of col loop to move to next row
-
-    return matched_rows, row_idx
-
-
-# def find_matches(df, drug_cols, drug_names):
-#     row_idx = []
-#     matched_rows = 0
-#     # iterate through rows
-#     for idx, row in df.iterrows():
-#         # iterate through drug_cols
-#         for col in drug_cols:
-#             drug_name = str(row[col])
-#             if pd.isna(drug_name) or drug_name == 'nan':
-#                 continue
-#             elif drug_name == '':
-#                 continue
-#             # Apply clean_brand_name and then check against drug_names
-#             drug_name = clean_brand_name(drug_name)
-#             for tgt_name in drug_names:
-#                 if drug_name == tgt_name:
-#                     row_idx.append(idx)
-#                     matched_rows += 1
-#                     break  # Break out of tgt_name loop once we find a match
-#             if drug_name == tgt_name:  # If we found a match
-#                 break  # Break out of col loop to move to next row
-
-#     return matched_rows, row_idx
+def find_matches(chunk, drug_cols, ref_drug_names):
+    chunk_row_idx = []
+    chunk_matched_rows = 0
+    # iterate through rows
+    for idx, row in chunk.iterrows():
+        # iterate through drug_cols
+        for col in drug_cols:
+            drug_name = str(row[col])
+            if pd.isna(drug_name) or drug_name == 'nan':
+                continue
+            elif drug_name == '':
+                continue
+            # Apply clean_brand_name and then check against drug_names
+            drug_name = clean_brand_name(drug_name)
+            for tgt_name in ref_drug_names:
+                if drug_name == tgt_name:
+                    chunk_row_idx.append(idx)
+                    chunk_matched_rows += 1
+                    break  # Break out of tgt_name loop once we find a match
+            if drug_name == tgt_name:  # If we found a match in drug_names loop
+                break  # Break out of col loop to move to next row, else move to next column
+    filtered_chunk = chunk.loc[chunk_row_idx] # using row labels, not positions, so changed from iloc to loc
+    return filtered_chunk
+    

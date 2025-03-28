@@ -67,7 +67,8 @@ def get_harmonized_drug_cols(df):
 # TODO: goal is to only run this for our target drugs, so we should get out of the loop if drug_name is not in brand2generic?
 def add_new_columns(df, drug_cols):
     brand2generic, brand2color = build_ref_data_maps()
-    npi_set = get_set_npis()
+    npi_path="data/filtered/prescribers/prescribers_final_npis.csv"
+    npi_set = get_set_npis(npi_path)
     for idx, row in df.iterrows():
         # iterate through drug_cols
         for col in drug_cols:
@@ -111,9 +112,9 @@ def clean_op_data(filepath, npi_set, fileout, year):
 
     # 2. Add Columns: Drug_Name, Prostate_drug_type, Onc_Prescriber
     drug_cols = get_harmonized_drug_cols(df)
-    df = add_new_columns(df, drug_cols, npi_set)
+    df = add_new_columns(df, drug_cols)
     assert 'Drug_Name' in df.columns
-    assert 'Prostate_drug_type' in df.columns
+    assert 'Prostate_Drug_Type' in df.columns
     assert 'Onc_Prescriber' in df.columns
     
     # 3. Save to CSV (save all cols as string)

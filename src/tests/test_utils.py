@@ -185,14 +185,14 @@ class TestFindMatches(unittest.TestCase):
             'drug2': ['DRUG_B', 'DRUG_C']
         })
         
-        matched_rows, row_idx = find_matches(
-            df=df,
+        filtered_df = find_matches(
+            chunk=df,
             drug_cols=['drug1', 'drug2'],
-            drug_names=['keytruda']
+            ref_drug_names=['keytruda']
         )
         
-        self.assertEqual(matched_rows, 1)
-        self.assertEqual(row_idx, [0])
+        self.assertEqual(len(filtered_df), 1)
+        self.assertTrue('KEYTRUDA' in filtered_df['drug1'].values)
 
     def test_match_order(self):
         # Test that we check all target names before moving to next column
@@ -201,33 +201,34 @@ class TestFindMatches(unittest.TestCase):
             'drug2': ['KEYTRUDA', 'DRUG_B']
         })
         
-        # Order is important - keytruda comes after xtandi in list
-        matched_rows, row_idx = find_matches(
-            df=df,
+        filtered_df = find_matches(
+            chunk=df,
             drug_cols=['drug1', 'drug2'],
-            drug_names=['xtandi', 'keytruda']
+            ref_drug_names=['xtandi', 'keytruda']
         )
         
         # Should find both XTANDI and KEYTRUDA
-        self.assertEqual(matched_rows, 2)
-        self.assertEqual(sorted(row_idx), [0, 1])
+        self.assertEqual(len(filtered_df), 2)
+        self.assertTrue('XTANDI' in filtered_df['drug1'].values)
+        self.assertTrue('KEYTRUDA' in filtered_df['drug2'].values)
 
     def test_multiple_matches_same_row(self):
-        # Test that we only count each row once even if multiple matches
+        # Test that we only include each row once even if multiple matches
         df = pd.DataFrame({
             'drug1': ['KEYTRUDA', 'XTANDI'],
             'drug2': ['KEYTRUDA', 'KEYTRUDA']  # Duplicate in same row
         })
         
-        matched_rows, row_idx = find_matches(
-            df=df,
+        filtered_df = find_matches(
+            chunk=df,
             drug_cols=['drug1', 'drug2'],
-            drug_names=['keytruda', 'xtandi']
+            ref_drug_names=['keytruda', 'xtandi']
         )
         
-        # Should only count each row once
-        self.assertEqual(matched_rows, 2)
-        self.assertEqual(sorted(row_idx), [0, 1])
+        # Should only include each row once
+        self.assertEqual(len(filtered_df), 2)
+        self.assertTrue('KEYTRUDA' in filtered_df['drug1'].values)
+        self.assertTrue('XTANDI' in filtered_df['drug1'].values)
 
 
 
