@@ -1,6 +1,7 @@
 import pandas as pd
 import os
-
+import json
+import logging
 from src._utils import (
     setup_logging,
     clean_brand_name,
@@ -10,6 +11,9 @@ from src._utils import (
 from src.filter_prescribers import (
     get_set_npis,
 )
+
+setup_logging()
+logger = logging.getLogger(__name__)    
 
 
 def build_map_year2cols():
@@ -93,15 +97,12 @@ def is_onc_prescriber(prostate_drug_type, recipient_npi, npi_set):
     return 1 if prostate_drug_type == 1 and recipient_npi in npi_set else 0
 
 
-def add_new_columns(df, drug_cols):
+def add_new_columns(df, drug_cols, npi_set):
     brand2generic, brand2color = build_ref_data_maps()
-    npi_path="data/filtered/prescribers/prescribers_final_npis.csv"
-    npi_set = get_set_npis(npi_path)
 
     for idx, row in df.iterrows():
         # iterate through drug_cols
         for col in drug_cols:
-            print(f"Processing col {col}")
             drug_name = str(row[col])
             if pd.isna(drug_name) or drug_name == 'nan':
                 continue
@@ -118,20 +119,17 @@ def add_new_columns(df, drug_cols):
 
             # add Drug_Name
             df.at[idx, 'Drug_Name'] = generic_name
-            print("added value to Drug_Name")
 
             # add Prostate_Drug_Type
             df.at[idx, 'Prostate_Drug_Type'] = get_prostate_drug_type(drug_name, brand2color)
-            print("added value to Prostate_Drug_Type")
 
             # add Onc_Prescriber col:
             result = is_onc_prescriber(df.at[idx, 'Prostate_Drug_Type'], df.at[idx, 'Covered_Recipient_NPI'], npi_set)
             df.at[idx, 'Onc_Prescriber'] = result
-            print("added value to Onc_Prescriber")
 
     return df
 
-def clean_op_data(filepath, fileout, year):
+def clean_op_data(filepath, fileout, year, npi_set):
     """
     Clean and enhance Open Payments data
     Harmonize column names 
@@ -157,7 +155,7 @@ def clean_op_data(filepath, fileout, year):
 
     # 3. Add Columns: Drug_Name, Prostate_Drug_Type, Onc_Prescriber
     drug_cols = get_harmonized_drug_cols(df)
-    df = add_new_columns(df, drug_cols)
+    df = add_new_columns(df, drug_cols, npi_set)
     assert 'Drug_Name' in df.columns
     assert 'Prostate_Drug_Type' in df.columns
     assert 'Onc_Prescriber' in df.columns
@@ -167,27 +165,23 @@ def clean_op_data(filepath, fileout, year):
     df['Onc_Prescriber'] = df['Onc_Prescriber'].astype(float).astype(int).astype(str)
     df['Covered_Recipient_Profile_ID'] = df['Covered_Recipient_Profile_ID'].astype(float).astype(int).astype(str)
     
+    import ipdb; ipdb.set_trace()
     # 4. Save to CSV (save all cols as string)
     df.astype(str).to_csv(fileout, index=False)
 
 
-def run_op_cleaner(files_dir, dataset_type):
-    # load npi_list
-    npi_path="data/filtered/prescribers/prescribers_final_npis.csv"
-    npi_df = pd.read_csv(npi_path)
-    npi_set = npi_df['Prscrbr_NPI']
-    assert len(npi_set.value_counts().unique()) == 1
+def run_op_cleaner(file_to_clean, dataset_type, year, year2npis_path):
+    # load year2npis_path (json)
+    with open(year2npis_path, 'r') as f:
+        year2npis = json.load(f)
+    # get npi_set for year
+    npi_set = year2npis[year]
 
-    # For each payment file in files_dir
-    for file in os.listdir(files_dir):
-        # check if this is a file and not a directory
-        if os.path.isfile(os.path.join(files_dir, file)):
-            # get year from filename
-            year = file.split("_")[-1].split(".")[0]
-            fileout = f"data/final_files/{dataset_type}_payments/{dataset_type}_{year}.csv"
-            
-            clean_op_data(
-                os.path.join(files_dir, file),
-                fileout,
-                year
-                )
+    fileout = f"data/final_files/{dataset_type}_payments/{dataset_type}_{year}.csv"
+    
+    clean_op_data(
+        file_to_clean,
+        fileout,
+        year,
+        npi_set
+        )

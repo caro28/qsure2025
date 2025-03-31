@@ -68,11 +68,14 @@ def filter_open_payments(year, dataset_type):
     op_path = get_op_raw_path(year, dataset_type)
     # load csv in chunks
     chunksize = 100_000
-    chunks = pd.read_csv(op_path, chunksize=chunksize)
+    chunks = pd.read_csv(op_path, chunksize=chunksize, dtype=str)
 
     # Get drug columns
     op_drug_cols = get_op_drug_columns(pd.read_csv(op_path, nrows=1))
-    dir_out = f"data/filtered/{dataset_type}_payments/chunks/"
+    # create dir_out if doesn't exist
+    dir_out = f"data/filtered/{dataset_type}_payments/{year}_chunks/"
+    os.makedirs(dir_out, exist_ok=True)
+
     total_matched_rows = 0
     # Filter each chunk using exact drug name matches
     for i, chunk in enumerate(chunks):

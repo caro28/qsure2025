@@ -1,9 +1,14 @@
 import pandas as pd
 import logging
 import os
+import json
+
+from collections import defaultdict
+
 from src._utils import (
     setup_logging,
-    find_matches,
+    clean_brand_name,
+    concatenate_chunks,
 )
 
 setup_logging()
@@ -21,6 +26,31 @@ def add_years_to_raw_prescriber_chunks(dir_in, dir_out):
         df.to_csv(os.path.join(dir_out, file), index=False)
 
 
+def find_matches_prescribers(chunk, drug_cols, ref_drug_names):
+    chunk_row_idx = []
+    chunk_matched_rows = 0
+    # iterate through rows
+    for idx, row in chunk.iterrows():
+        # iterate through drug_cols
+        for col in drug_cols:
+            drug_name = str(row[col])
+            if pd.isna(drug_name) or drug_name == 'nan':
+                continue
+            elif drug_name == '':
+                continue
+            # Apply clean_brand_name and then check against drug_names
+            drug_name = clean_brand_name(drug_name)
+            for tgt_name in ref_drug_names:
+                if tgt_name in drug_name:
+                    chunk_row_idx.append(idx)
+                    chunk_matched_rows += 1
+                    break  # Break out of tgt_name loop once we find a match
+            if tgt_name in drug_name:  # If we found a match in drug_names loop
+                break  # Break out of col loop to move to next row, else move to next column
+    filtered_chunk = chunk.loc[chunk_row_idx] # using row labels, not positions, so changed from iloc to loc
+    return filtered_chunk
+
+
 def filter_prescribers_by_drug_names(path_in, dir_out):
     """
     Filter Prescribers data to find qualifying NPIs
@@ -36,40 +66,71 @@ def filter_prescribers_by_drug_names(path_in, dir_out):
     drug_cols = ['Brnd_Name', 'Gnrc_Name']
 
     for i, chunk in enumerate(chunks):
-        filtered_chunk = find_matches(chunk, drug_cols, drug_names)
+        filtered_chunk = find_matches_prescribers(chunk, drug_cols, drug_names)
         # save filtered chunk to csv if not empty
         if not filtered_chunk.empty:
             filtered_chunk.to_csv(f"{dir_out}prescribers_chunk_{i+1}.csv", index=False)
             logger.info("Saved chunk %s, found %s matches", i+1, len(filtered_chunk))
             total_matched_rows += len(filtered_chunk)
-
+    
     logger.info("Matched %s rows for prescribers", total_matched_rows)
 
 
 # Step 2: Group by id and get sorted unique years where target_names appeared
-def has_three_consecutive_years(group):
-    years = sorted(group['Year'].unique())
+def has_three_consecutive_years(years):
+    years = sorted(set(years))
     # Check for any 3 consecutive years
     for i in range(len(years) - 2):
         if int(years[i + 2]) - int(years[i]) == 2:
             return True
     return False
 
+
 def get_final_npis(pathin_filtered_prescribers, pathout_final_npis):
-    filtered_prescribers = pd.read_csv(pathin_filtered_prescribers)
-    df_grouped_npi = filtered_prescribers.groupby('Prscrbr_NPI')
-    valid_npis = (
-        df_grouped_npi
-        .filter(has_three_consecutive_years)
-        .Prscrbr_NPI
-        .unique()
-    )
-    # Step 4: Filter original 'filtered' DataFrame based on valid_ids
-    final_df = filtered_prescribers[filtered_prescribers['Prscrbr_NPI'].isin(valid_npis)].drop_duplicates(subset=['Prscrbr_NPI'])
-    # Keep only columns: Prscrbr_NPI, Prscrbr_Type, Brnd_Name, Gnrc_Name
-    final_df = final_df[['Prscrbr_NPI', 'Prscrbr_Type', 'Brnd_Name', 'Gnrc_Name', 'Year']]
-    # save to csv
-    final_df.to_csv(pathout_final_npis, index=False)
+    df = pd.read_csv(pathin_filtered_prescribers, dtype=str)
+    npi_groups = df.groupby('Prscrbr_NPI')
+    npi_years = npi_groups.agg({'Year': list}).reset_index()
+
+    year2npis = defaultdict(list)
+    for idx, row in npi_years.iterrows():
+        years = row['Year']
+        years = sorted(set(years))
+        npi = row['Prscrbr_NPI']
+
+        min_year = years[0]
+        max_year = years[-1]
+
+        # deal with special cases
+        if min_year == '2013':
+            if len(years) == 1: # for 2014, years = ['2013']
+                year2npis['2014'].append(npi)
+            elif max_year == '2014': # for 2015, years = [2013', '2014']
+                year2npis['2015'].append(npi)
+            else:
+                # run the 3 consecutive year check, which the 2 cases above will fail / return False
+                result = has_three_consecutive_years(years)
+                if result: # if get a True
+                    target_year = int(max_year) + 1
+                    year2npis[str(target_year)].append(npi)
+                else:
+                    continue
+        else:
+            # run the 3 consecutive year check
+            result = has_three_consecutive_years(years)
+            if result: # if get a True
+                target_year = int(max_year) + 1
+                year2npis[str(target_year)].append(npi)
+            else:
+                continue
+
+    for year in year2npis.keys():
+        year2npis[year] = list(set(year2npis[year]))
+    
+    # Convert defaultdict to a regular dictionary
+    year2npis = dict(year2npis)
+    # save to json
+    with open(pathout_final_npis, 'w') as f:
+        json.dump(year2npis, f)
 
 
 def get_set_npis(npi_path):
@@ -78,3 +139,30 @@ def get_set_npis(npi_path):
     assert len(npi_df['Prscrbr_NPI'].value_counts().unique()) == 1
     npi_set = npi_df['Prscrbr_NPI'].astype('string').to_list()
     return npi_set
+
+
+
+def main():
+    # Add Year column to raw prescriber chunks
+    add_years_to_raw_prescriber_chunks("data/raw/prescribers/chunks/", "data/raw/prescribers/with_years/")
+    print("Finished adding years to raw prescriber chunks")
+    # Concatenate raw prescribers chunks (already filtered by prescriber type)
+    concatenate_chunks("data/raw/prescribers/with_years/", "data/filtered/prescribers/prescribers_filtered_prscrb_type.csv")
+    print("Finished concatenating prescribers chunks")
+    
+    # Filter Prescribers by drug names, then save in chunks
+    dir_prescribers_filtered_chunks = "data/filtered/prescribers/chunks/"
+    filter_prescribers_by_drug_names("data/filtered/prescribers/prescribers_filtered_prscrb_type.csv", dir_prescribers_filtered_chunks)
+    print("Finished filtering prescribers by drug names")
+    # Concatenate filtered prescribers chunks
+    concatenate_chunks(dir_prescribers_filtered_chunks, "data/filtered/prescribers/prescribers_filtered_type_drug_names.csv")
+    print("Finished concatenating filtered prescribers chunks")
+    
+    # # 3. Get target set of NPIs and save to CSV
+    year2npis_path = "data/filtered/prescribers/prescribers_year2npis.json"
+    get_final_npis("data/filtered/prescribers/prescribers_filtered_type_drug_names.csv", year2npis_path)
+    print("Finished getting final npis")
+
+
+if __name__ == "__main__":
+    main()
