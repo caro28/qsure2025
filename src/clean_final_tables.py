@@ -93,25 +93,11 @@ def is_onc_prescriber(prostate_drug_type, recipient_npi, npi_set):
     return 1 if prostate_drug_type == 1 and recipient_npi in npi_set else 0
 
 
-
-# TODO: goal is to only run this for our target drugs, so we should get out of the loop if drug_name is not in brand2generic?
 def add_new_columns(df, drug_cols):
     brand2generic, brand2color = build_ref_data_maps()
     npi_path="data/filtered/prescribers/prescribers_final_npis.csv"
     npi_set = get_set_npis(npi_path)
 
-    # drop rows where Covered_Recipient_NPI is nan and save to csv
-    # Split out the rows with NaN
-    npi_missing = df[df['Covered_Recipient_NPI'].isna()]
-    npi_missing.to_csv("data/final_files/general_payments/missing_npis/npi_missing.csv", index=False)
-
-    # Drop those rows from the original DataFrame
-    df = df[df['Covered_Recipient_NPI'].notna()]
-    df['Covered_Recipient_NPI'] = df['Covered_Recipient_NPI'].astype(float).astype(int).astype(str)
-    import pdb; pdb.set_trace()
-
-    df = df.loc[df['Covered_Recipient_NPI']=='1922277268'] ################################ TESTING
-    print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
     for idx, row in df.iterrows():
         # iterate through drug_cols
         for col in drug_cols:
@@ -121,25 +107,27 @@ def add_new_columns(df, drug_cols):
                 continue
             elif drug_name == '':
                 continue
+
             drug_name = clean_brand_name(drug_name)
-
-            # add Prostate_Drug_Type
-            ## TODO: test new functions
-            df.at[idx, 'Prostate_Drug_Type'] = get_prostate_drug_type(drug_name, brand2color)
-            print("added value to Prostate_Drug_Type")
-
-            # add Onc_Prescriber col: 1 if Prostate_Drug_Type == 1 AND Covered_Recipient_NPI is in npi_set
-            result = is_onc_prescriber(df.at[idx, 'Prostate_Drug_Type'], df.at[idx, 'Covered_Recipient_NPI'], npi_set)
-            df.at[idx, 'Onc_Prescriber'] = result
-            print("added value to Onc_Prescriber")
-
-            # add generic_name to df
+            
+            # skip drug names not in our target set
             try:
                 generic_name = brand2generic[drug_name]
             except KeyError:
                 continue
+
+            # add Drug_Name
             df.at[idx, 'Drug_Name'] = generic_name
             print("added value to Drug_Name")
+
+            # add Prostate_Drug_Type
+            df.at[idx, 'Prostate_Drug_Type'] = get_prostate_drug_type(drug_name, brand2color)
+            print("added value to Prostate_Drug_Type")
+
+            # add Onc_Prescriber col:
+            result = is_onc_prescriber(df.at[idx, 'Prostate_Drug_Type'], df.at[idx, 'Covered_Recipient_NPI'], npi_set)
+            df.at[idx, 'Onc_Prescriber'] = result
+            print("added value to Onc_Prescriber")
 
     return df
 
@@ -152,18 +140,34 @@ def clean_op_data(filepath, fileout, year):
         Drug_Name, (generic name)
         Onc_Prescriber, (1 if Prostate_drug_type == 1 AND Covered_Recipient_NPI is in npi_set)
     """
-    # 1. Harmonize column names
-    df = pd.read_csv(filepath)
+    df = pd.read_csv(filepath, dtype=str)
+
+    # 1. Clean df: drop rows where Covered_Recipient_NPI is nan
+    npi_missing = df[df['Covered_Recipient_NPI'].isna()]
+    # save dropped rows to csv
+    filename = fileout.split("/")[-1]
+    npi_missing.to_csv(f"data/final_files/general_payments/missing_npis/{filename}", index=False)
+
+    # Drop nan NPI rows from the original DataFrame
+    df = df[df['Covered_Recipient_NPI'].notna()]
+    df['Covered_Recipient_NPI'] = df['Covered_Recipient_NPI'].astype(float).astype(int).astype(str)
+
+    # 2. Harmonize column names
     df = harmonize_col_names(df, year)
 
-    # 2. Add Columns: Drug_Name, Prostate_drug_type, Onc_Prescriber
+    # 3. Add Columns: Drug_Name, Prostate_Drug_Type, Onc_Prescriber
     drug_cols = get_harmonized_drug_cols(df)
     df = add_new_columns(df, drug_cols)
-    # assert 'Drug_Name' in df.columns
-    # assert 'Prostate_Drug_Type' in df.columns
-    # assert 'Onc_Prescriber' in df.columns
+    assert 'Drug_Name' in df.columns
+    assert 'Prostate_Drug_Type' in df.columns
+    assert 'Onc_Prescriber' in df.columns
+
+    # Remove decimals from cols
+    df['Prostate_Drug_Type'] = df['Prostate_Drug_Type'].astype(float).astype(int).astype(str)
+    df['Onc_Prescriber'] = df['Onc_Prescriber'].astype(float).astype(int).astype(str)
+    df['Covered_Recipient_Profile_ID'] = df['Covered_Recipient_Profile_ID'].astype(float).astype(int).astype(str)
     
-    # 3. Save to CSV (save all cols as string)
+    # 4. Save to CSV (save all cols as string)
     df.astype(str).to_csv(fileout, index=False)
 
 
@@ -184,7 +188,6 @@ def run_op_cleaner(files_dir, dataset_type):
             
             clean_op_data(
                 os.path.join(files_dir, file),
-                npi_set,
                 fileout,
                 year
                 )
