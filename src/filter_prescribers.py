@@ -75,6 +75,6 @@ def get_final_npis(pathin_filtered_prescribers, pathout_final_npis):
 def get_set_npis(npi_path):
     # load npi_list
     npi_df = pd.read_csv(npi_path)
-    npi_set = npi_df['Prscrbr_NPI']
-    assert len(npi_set.value_counts().unique()) == 1
+    assert len(npi_df['Prscrbr_NPI'].value_counts().unique()) == 1
+    npi_set = npi_df['Prscrbr_NPI'].astype('string').to_list()
     return npi_set

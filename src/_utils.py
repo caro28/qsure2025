@@ -302,18 +302,18 @@ def concatenate_chunks(chunks_dir, fileout):
     rows_per_chunk = 0
     # Write first chunk with header
     logger.info(f"Processing file {os.path.join(chunks_dir, chunks[0])}")
-    df = pd.read_csv(os.path.join(chunks_dir, chunks[0]), encoding='latin-1')
+    df = pd.read_csv(os.path.join(chunks_dir, chunks[0]), encoding='latin-1', dtype=str)
     rows_per_chunk = len(df)
     df.to_csv(fileout, index=False)
     
     # Append all other chunks without headers
     for idx, chunk in enumerate(chunks[1:]):
         logger.info(f"Processing file {os.path.join(chunks_dir, chunks[idx+1])}")
-        df = pd.read_csv(os.path.join(chunks_dir, chunk), encoding='latin-1')
+        df = pd.read_csv(os.path.join(chunks_dir, chunk), encoding='latin-1', dtype=str)
         rows_per_chunk += len(df)
-        df.to_csv(fileout, mode='a', header=False, index=False)
+        df.astype(str).to_csv(fileout, mode='a', header=False, index=False)
     logger.info(f"Finished concatenating {rows_per_chunk} rows")
-    assert rows_per_chunk == len(pd.read_csv(fileout, encoding='latin-1'))
+    assert rows_per_chunk == len(pd.read_csv(fileout, encoding='latin-1', dtype=str))
 
 
 def find_matches(chunk, drug_cols, ref_drug_names):
