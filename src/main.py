@@ -20,8 +20,6 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    start_time = time.time()
-
     # 1. Filter Prescribers: one-time filtering; done separately using filter_prescribers.py
     year2npis_path = "data/filtered/prescribers/prescribers_year2npis.json"
     
@@ -32,6 +30,7 @@ def main():
     # Filter in chunks and save intermediary files
     for dataset_type in dataset_types:
         for year in years:
+            start_time = time.time()
             filter_open_payments(year, dataset_type, prostate_drug_list_path)
             logger.info("Finished filtering %s payments for %s", dataset_type, year)
             # Concatenate filtered chunks and save to full file
@@ -45,9 +44,9 @@ def main():
             run_op_cleaner(filtered_op_file, dataset_type, year, year2npis_path)
             logger.info("Finished cleaning %s payments for year %s")
 
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    logger.info(f"Total execution time: {elapsed_time:.2f} seconds")
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            logger.info("Total execution time for %s, %s: %.2f seconds", dataset_type, year, elapsed_time)
 
 
 
