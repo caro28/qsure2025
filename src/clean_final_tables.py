@@ -134,9 +134,9 @@ def clean_op_data(filepath, fileout, year, npi_set):
     Clean and enhance Open Payments data
     Harmonize column names 
     Add columns
-        Prostate_drug_type, (0/1 based on Color)
-        Drug_Name, (generic name)
-        Onc_Prescriber, (1 if Prostate_drug_type == 1 AND Covered_Recipient_NPI is in npi_set)
+        Prostate_drug_type (0/1 based on Color)
+        Drug_Name (generic name)
+        Onc_Prescriber (1 if Prostate_drug_type == 1 AND Covered_Recipient_NPI is in npi_set)
     """
     df = pd.read_csv(filepath, dtype=str)
 
@@ -155,6 +155,7 @@ def clean_op_data(filepath, fileout, year, npi_set):
 
     # 3. Add Columns: Drug_Name, Prostate_Drug_Type, Onc_Prescriber
     drug_cols = get_harmonized_drug_cols(df)
+    logger.info("Adding new columns to %s", fileout)
     df = add_new_columns(df, drug_cols, npi_set)
     assert 'Drug_Name' in df.columns
     assert 'Prostate_Drug_Type' in df.columns
@@ -165,7 +166,6 @@ def clean_op_data(filepath, fileout, year, npi_set):
     df['Onc_Prescriber'] = df['Onc_Prescriber'].astype(float).astype(int).astype(str)
     df['Covered_Recipient_Profile_ID'] = df['Covered_Recipient_Profile_ID'].astype(float).astype(int).astype(str)
     
-    import ipdb; ipdb.set_trace()
     # 4. Save to CSV (save all cols as string)
     df.astype(str).to_csv(fileout, index=False)
 
