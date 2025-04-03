@@ -8,20 +8,16 @@ from src._utils import (
     clean_generic_name,
 )
 
-from src.filter_prescribers import (
-    get_set_npis,
-)
-
 setup_logging()
 logger = logging.getLogger(__name__)    
 
 
-def build_map_year2cols():
+def build_map_year2cols(dataset_type):
     """
     Build a map of year to columns
     """
     year2cols = {}
-    grace_cols = pd.read_csv("data/reference/col_names/general_payments/grace_cols.csv")
+    grace_cols = pd.read_csv(f"data/reference/col_names/{dataset_type}_payments/grace_cols.csv")
     years = grace_cols.columns
     for year in years:
         year2cols[year] = grace_cols[year].dropna().to_list()
@@ -54,13 +50,13 @@ def build_ref_data_maps():
 
     return brand2generic, brand2color
 
-def harmonize_col_names(df, year):
+def harmonize_col_names(df, year, dataset_type):
     """
     Harmonize column names using a map of year to columns from grace_cols.csv
     """
     # Get map of year2cols
-    year2cols = build_map_year2cols()
-    df.columns = year2cols[year]
+    year2cols = build_map_year2cols(dataset_type)
+    df.columns = year2cols[str(year)]
     return df
 
 def get_harmonized_drug_cols(df):
@@ -129,7 +125,7 @@ def add_new_columns(df, drug_cols, npi_set):
 
     return df
 
-def clean_op_data(filepath, fileout, year, npi_set):
+def clean_op_data_gnrl(filepath, fileout, year, npi_set, dataset_type):
     """
     Clean and enhance Open Payments data
     Harmonize column names 
@@ -151,7 +147,7 @@ def clean_op_data(filepath, fileout, year, npi_set):
     df['Covered_Recipient_NPI'] = df['Covered_Recipient_NPI'].astype(float).astype(int).astype(str)
 
     # 2. Harmonize column names
-    df = harmonize_col_names(df, year)
+    df = harmonize_col_names(df, year, dataset_type)
 
     # 3. Add Columns: Drug_Name, Prostate_Drug_Type, Onc_Prescriber
     drug_cols = get_harmonized_drug_cols(df)
@@ -165,6 +161,60 @@ def clean_op_data(filepath, fileout, year, npi_set):
     df['Prostate_Drug_Type'] = df['Prostate_Drug_Type'].astype(float).astype(int).astype(str)
     df['Onc_Prescriber'] = df['Onc_Prescriber'].astype(float).astype(int).astype(str)
     df['Covered_Recipient_Profile_ID'] = df['Covered_Recipient_Profile_ID'].astype(float).astype(int).astype(str)
+
+    # fill all nan with ''
+    df.fillna('', inplace=True)
+    
+    # 4. Save to CSV (save all cols as string)
+    df.astype(str).to_csv(fileout, index=False)
+
+
+def clean_op_data_rsrch(filepath, fileout, year, npi_set, dataset_type):
+    """
+    Clean and enhance Open Payments data
+    Harmonize column names 
+    Add columns
+        Prostate_drug_type (0/1 based on Color)
+        Drug_Name (generic name)
+        Onc_Prescriber (1 if Prostate_drug_type == 1 AND Covered_Recipient_NPI is in npi_set)
+    """
+    df = pd.read_csv(filepath, dtype=str)
+
+    # 1. Clean df: drop rows where NPI val is nan in all NPI cols
+    npi_cols = df.filter(regex=r'^Principal_Investigator_\d+_NPI$').columns.to_list()
+    npi_cols.append('Covered_Recipient_NPI')
+    rows_all_na = df[npi_cols].isna().all(axis=1)
+    npi_missing = df[rows_all_na]
+    # save dropped rows to csv
+    filename = fileout.split("/")[-1]
+    npi_missing.to_csv(f"data/final_files/research_payments/missing_npis/{filename}", index=False)
+
+    # Drop nan NPI rows from the original DataFrame
+    df = df.dropna(subset=npi_cols, how='all')
+    # convert nan to empty str
+    for col in npi_cols:
+        df[col] = df[col].astype(float).astype(int).astype(str)
+
+    # TODO: is Grace's rsrch sas code doing something else to col names?
+    # 2. Harmonize column names
+    df = harmonize_col_names(df, year, dataset_type)
+
+    # TODO: need to look in all NPI cols for NPI - edit add_new_columns with a conditional if rsrch?
+    # 3. Add Columns: Drug_Name, Prostate_Drug_Type, Onc_Prescriber
+    drug_cols = get_harmonized_drug_cols(df)
+    logger.info("Adding new columns to %s", fileout)
+    df = add_new_columns(df, drug_cols, npi_set)
+    assert 'Drug_Name' in df.columns
+    assert 'Prostate_Drug_Type' in df.columns
+    assert 'Onc_Prescriber' in df.columns
+
+    # Remove decimals from cols
+    df['Prostate_Drug_Type'] = df['Prostate_Drug_Type'].astype(float).astype(int).astype(str)
+    df['Onc_Prescriber'] = df['Onc_Prescriber'].astype(float).astype(int).astype(str)
+    df['Covered_Recipient_Profile_ID'] = df['Covered_Recipient_Profile_ID'].astype(float).astype(int).astype(str)
+
+    # fill all nan with ''
+    df.fillna('', inplace=True)
     
     # 4. Save to CSV (save all cols as string)
     df.astype(str).to_csv(fileout, index=False)
@@ -175,13 +225,23 @@ def run_op_cleaner(file_to_clean, dataset_type, year, year2npis_path):
     with open(year2npis_path, 'r') as f:
         year2npis = json.load(f)
     # get npi_set for year
-    npi_set = year2npis[year]
+    year_str = str(year)
+    npi_set = year2npis[year_str]
 
     fileout = f"data/final_files/{dataset_type}_payments/{dataset_type}_{year}.csv"
     
-    clean_op_data(
-        file_to_clean,
-        fileout,
-        year,
-        npi_set
-        )
+    if dataset_type == "general":
+        clean_op_data_gnrl(
+            file_to_clean,
+            fileout,
+            year,
+            npi_set
+            )
+    
+    else:
+        clean_op_data_rsrch(
+            file_to_clean,
+            fileout,
+            year,
+            npi_set
+            )

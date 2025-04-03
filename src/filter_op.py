@@ -88,6 +88,7 @@ def filter_open_payments(year, dataset_type, ref_path):
 
     # # Load OP data for year/type
     op_path = get_op_raw_path(year, dataset_type)
+    logger.info("Raw data file: %s", op_path)
     # load csv in chunks
     chunksize = 100_000
     chunks = pd.read_csv(op_path, chunksize=chunksize, dtype=str)
@@ -98,15 +99,19 @@ def filter_open_payments(year, dataset_type, ref_path):
     dir_out = f"data/filtered/{dataset_type}_payments/{year}_chunks/"
     os.makedirs(dir_out, exist_ok=True)
 
+    logger.info("Looking for matches")
     total_matched_rows = 0
     # Filter each chunk using exact drug name matches
     for i, chunk in enumerate(chunks):
+        logger.info("Processing chunk %s", i)
         filtered_chunk = find_matches_op(chunk, op_drug_cols, ref_drug_names)
         # Save to CSV if filtered chunk is not empty
         if not filtered_chunk.empty:
-            filtered_chunk.to_csv(f"{dir_out}{dataset_type}_{year}_chunk_{i+1}.csv", index=False)
-            logger.info("Saved chunk %s, found %s matches", i+1, len(filtered_chunk))
+            filtered_chunk.to_csv(f"{dir_out}{dataset_type}_{year}_chunk_{i}.csv", index=False)
+            logger.info("Saved chunk %s, found %s matches", i, len(filtered_chunk))
             total_matched_rows += len(filtered_chunk)
+        else:
+            logger.info("Didn't find any matches in chunk %s", i)
 
     logger.info("Matched %s rows for %s %s", total_matched_rows, year, dataset_type)
 
