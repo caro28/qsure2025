@@ -25,7 +25,7 @@ def main():
     
     # 2. Filter Open Payments (2014-2023) in chunks by target drug names
     prostate_drug_list_path = "data/reference/ProstateDrugList.csv"
-    years = range(2022, 2023)
+    years = range(2016, 2022)
     dataset_types = ["research"]
     # Filter in chunks and save intermediary files
     for dataset_type in dataset_types:
@@ -40,10 +40,10 @@ def main():
             concatenate_chunks(op_chunks_dirs, filtered_op_file)
             logger.info("Finished concatenating %s payments for %s", dataset_type, year)
 
-            # # 3. Clean Open Payments data and Save to csv
-            # logger.info(f"Cleaning {dataset_type} payments for {year}")
-            # run_op_cleaner(filtered_op_file, dataset_type, year, year2npis_path)
-            # logger.info("Finished cleaning %s payments for year %s")
+            # 3. Clean Open Payments data and Save to csv
+            logger.info(f"Cleaning {dataset_type} payments for {year}")
+            run_op_cleaner(filtered_op_file, dataset_type, year, year2npis_path)
+            logger.info("Finished cleaning %s payments for year %s")
 
             end_time = time.time()
             elapsed_time = end_time - start_time

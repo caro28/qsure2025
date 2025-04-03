@@ -93,7 +93,33 @@ def is_onc_prescriber(prostate_drug_type, recipient_npi, npi_set):
     return 1 if prostate_drug_type == 1 and recipient_npi in npi_set else 0
 
 
-def add_new_columns(df, drug_cols, npi_set):
+def is_onc_prescriber_rsrch(prostate_drug_type, recipient_npis, npi_set):
+    """
+    Determine if a recipient is an oncology prescriber based on drug type and NPI
+    
+    Args:
+        prostate_drug_type (int): Whether the drug is a prostate drug (1) or not (0)
+        recipient_npis: All NPIs from the row -> ANY works for the condition
+        npi_set: Set of NPIs that are considered oncology prescribers
+        
+    Returns:
+        int: 1 if the recipient is an oncology prescriber for prostate drugs, 0 otherwise
+    """
+    if int(prostate_drug_type) == 0:
+        return 0
+    elif int(prostate_drug_type) == 1:
+        for npi in recipient_npis:
+            if npi in npi_set:
+                return 1
+            else:
+                continue
+        # finished the loop, so we checked all npi's and none are in npi_set
+        return 0
+    else:
+        raise ValueError("Unsupported value type in 'Prostate_Drug_Type' (1/0)")
+
+
+def add_new_columns(df, drug_cols, npi_set, dataset_type):
     brand2generic, brand2color = build_ref_data_maps()
 
     for idx, row in df.iterrows():
@@ -120,7 +146,21 @@ def add_new_columns(df, drug_cols, npi_set):
             df.at[idx, 'Prostate_Drug_Type'] = get_prostate_drug_type(drug_name, brand2color)
 
             # add Onc_Prescriber col:
-            result = is_onc_prescriber(df.at[idx, 'Prostate_Drug_Type'], df.at[idx, 'Covered_Recipient_NPI'], npi_set)
+            if dataset_type == "general":
+                result = is_onc_prescriber(df.at[idx, 'Prostate_Drug_Type'], df.at[idx, 'Covered_Recipient_NPI'], npi_set)
+            else:
+                recipient_npis= []
+                new_npi_cols = [
+                    'Covered_Recipient_NPI',
+                    'PI_1_NPI',
+                    'PI_2_NPI',
+                    'PI_3_NPI',
+                    'PI_4_NPI',
+                    'PI_5_NPI'
+                ]
+                for npi_col in new_npi_cols:
+                    recipient_npis.append(df.at[idx, npi_col])
+                result = is_onc_prescriber_rsrch(df.at[idx, 'Prostate_Drug_Type'], recipient_npis, npi_set)
             df.at[idx, 'Onc_Prescriber'] = result
 
     return df
@@ -144,6 +184,7 @@ def clean_op_data_gnrl(filepath, fileout, year, npi_set, dataset_type):
 
     # Drop nan NPI rows from the original DataFrame
     df = df[df['Covered_Recipient_NPI'].notna()]
+    # remove the decimal if present in NPIs
     df['Covered_Recipient_NPI'] = df['Covered_Recipient_NPI'].astype(float).astype(int).astype(str)
 
     # 2. Harmonize column names
@@ -152,7 +193,7 @@ def clean_op_data_gnrl(filepath, fileout, year, npi_set, dataset_type):
     # 3. Add Columns: Drug_Name, Prostate_Drug_Type, Onc_Prescriber
     drug_cols = get_harmonized_drug_cols(df)
     logger.info("Adding new columns to %s", fileout)
-    df = add_new_columns(df, drug_cols, npi_set)
+    df = add_new_columns(df, drug_cols, npi_set, dataset_type)
     assert 'Drug_Name' in df.columns
     assert 'Prostate_Drug_Type' in df.columns
     assert 'Onc_Prescriber' in df.columns
@@ -191,19 +232,14 @@ def clean_op_data_rsrch(filepath, fileout, year, npi_set, dataset_type):
 
     # Drop nan NPI rows from the original DataFrame
     df = df.dropna(subset=npi_cols, how='all')
-    # convert nan to empty str
-    for col in npi_cols:
-        df[col] = df[col].astype(float).astype(int).astype(str)
 
-    # TODO: is Grace's rsrch sas code doing something else to col names?
     # 2. Harmonize column names
     df = harmonize_col_names(df, year, dataset_type)
 
-    # TODO: need to look in all NPI cols for NPI - edit add_new_columns with a conditional if rsrch?
     # 3. Add Columns: Drug_Name, Prostate_Drug_Type, Onc_Prescriber
     drug_cols = get_harmonized_drug_cols(df)
     logger.info("Adding new columns to %s", fileout)
-    df = add_new_columns(df, drug_cols, npi_set)
+    df = add_new_columns(df, drug_cols, npi_set, dataset_type)
     assert 'Drug_Name' in df.columns
     assert 'Prostate_Drug_Type' in df.columns
     assert 'Onc_Prescriber' in df.columns
@@ -211,7 +247,9 @@ def clean_op_data_rsrch(filepath, fileout, year, npi_set, dataset_type):
     # Remove decimals from cols
     df['Prostate_Drug_Type'] = df['Prostate_Drug_Type'].astype(float).astype(int).astype(str)
     df['Onc_Prescriber'] = df['Onc_Prescriber'].astype(float).astype(int).astype(str)
-    df['Covered_Recipient_Profile_ID'] = df['Covered_Recipient_Profile_ID'].astype(float).astype(int).astype(str)
+    df['Covered_Recipient_Profile_ID'] = df['Covered_Recipient_Profile_ID'].apply(
+        lambda x: str(int(x)) if pd.notna(x) else x
+        )
 
     # fill all nan with ''
     df.fillna('', inplace=True)
@@ -235,7 +273,8 @@ def run_op_cleaner(file_to_clean, dataset_type, year, year2npis_path):
             file_to_clean,
             fileout,
             year,
-            npi_set
+            npi_set,
+            dataset_type
             )
     
     else:
@@ -243,5 +282,6 @@ def run_op_cleaner(file_to_clean, dataset_type, year, year2npis_path):
             file_to_clean,
             fileout,
             year,
-            npi_set
+            npi_set,
+            dataset_type
             )
