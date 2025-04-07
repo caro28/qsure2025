@@ -49,10 +49,19 @@ def get_op_raw_path(year, dataset_type):
     logger.error(f"No file found for {year} {dataset_type}_payments")
     raise ValueError(f"No file found for {year} {dataset_type}_payments")
 
-def get_op_drug_columns(df: pd.DataFrame) -> List[str]:
+def get_op_drug_columns(df: pd.DataFrame, year: int) -> List[str]:
     """Get columns that contain drug names, case-insensitive"""
-    prefix = "name_of_drug_or_biological_or_device_or_medical_supply_"
-    return [col for col in df.columns if col.lower().startswith(prefix.lower())]
+    if int(year) < 2016:
+        prefixes = [
+            "Name_of_Associated_Covered_Drug_or_Biological",
+            "Name_of_Associated_Covered_Device_or_Medical_Supply"
+        ]
+    else:
+        prefixes = "name_of_drug_or_biological_or_device_or_medical_supply_"
+    cols = []
+    for prefix in prefixes:
+        cols.extend([col for col in df.columns if col.lower().startswith(prefix.lower())])
+    return cols
 
 def find_matches_op(chunk, drug_cols, ref_drug_names):
     chunk_row_idx = []
@@ -94,7 +103,7 @@ def filter_open_payments(year, dataset_type, ref_path):
     chunks = pd.read_csv(op_path, chunksize=chunksize, dtype=str)
 
     # Get drug columns
-    op_drug_cols = get_op_drug_columns(pd.read_csv(op_path, nrows=1))
+    op_drug_cols = get_op_drug_columns(pd.read_csv(op_path, nrows=1), year)
     # create dir_out if doesn't exist
     dir_out = f"data/filtered/{dataset_type}_payments/{year}_chunks/"
     os.makedirs(dir_out, exist_ok=True)
