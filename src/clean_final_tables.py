@@ -214,7 +214,17 @@ def clean_op_data(filepath, fileout, year, npi_set, dataset_type):
         df = merge_cols_2014_2015(df)
         df = harmonize_col_names(df, year, dataset_type)
         if int(year) == 2014:
-            df = add_npis_2014(df, year, dataset_type)
+            if dataset_type == "research":
+                profile_id_cols = [
+                'Covered_Recipient_Profile_ID',
+                'PI_1_Profile_ID',
+                'PI_2_Profile_ID',
+                'PI_3_Profile_ID',
+                'PI_4_Profile_ID',
+                'PI_5_Profile_ID']
+            else:
+                profile_id_cols = ['Covered_Recipient_Profile_ID']
+            df = add_npis_2014(df, dataset_type, profile_id_cols)
     else:
         df = harmonize_col_names(df, year, dataset_type)
     
@@ -223,17 +233,6 @@ def clean_op_data(filepath, fileout, year, npi_set, dataset_type):
         df = prep_general_data(df, fileout)
     else:
         df = prep_research_data(df, fileout)
-
-    # # Drop rows where Covered_Recipient_NPI is nan
-    # npi_missing = df[df['Covered_Recipient_NPI'].isna()]
-    # # save dropped rows to csv
-    # filename = fileout.split("/")[-1]
-    # npi_missing.to_csv(f"data/final_files/general_payments/missing_npis/{filename}", index=False)
-
-    # # Drop nan NPI rows from the original DataFrame
-    # df = df[df['Covered_Recipient_NPI'].notna()]
-    # # remove the decimal if present in NPIs
-    # df['Covered_Recipient_NPI'] = df['Covered_Recipient_NPI'].astype(float).astype(int).astype(str)
 
     # Add Columns: Drug_Name, Prostate_Drug_Type, Onc_Prescriber
     drug_cols = get_harmonized_drug_cols(df)
@@ -270,34 +269,42 @@ def merge_cols_2014_2015(df):
     return df
 
 
-def add_npis_2014(df, year, dataset_type):
-    # df = pd.read_csv(filepath, dtype=str)
-
-    # # 1. Merge drug columns
-    # for i in range(1, 6):
-    #     df[f"Drug_Biological_Device_Med_Sup_{i}"] = df[f"Name_of_Associated_Covered_Drug_or_Biological{i}"].replace("", pd.NA).fillna(
-    #         df[f"Name_of_Associated_Covered_Device_or_Medical_Supply{i}"]
-    #     )
-
-    #     # 2. Drop original columns
-    #     df.drop([f"Name_of_Associated_Covered_Drug_or_Biological{i}", f"Name_of_Associated_Covered_Device_or_Medical_Supply{i}"], axis=1, inplace=True)
-
-    # # 3. Harmonize column names
-    # df = harmonize_col_names(df, year, dataset_type)
-
+def add_npis_2014(df, dataset_type, profile_id_cols):
     # 4. Add NPIs to df using Profile ID
     providers_npis_ids = pd.read_csv("data/reference/providers_npis_ids.csv", dtype=str)
 
-    # sort df and providers_npi_ids by provider ID
-    df.sort_values(by="Covered_Recipient_Profile_ID", inplace=True)
-    providers_npis_ids.sort_values(by="Covered_Recipient_Profile_ID", inplace=True)
+    for col in profile_id_cols:
+        npi_df = providers_npis_ids.copy()
+        # rename Covered_Recipient_Profile_ID to col in providers_npis_ids for merge
+        current_columns = npi_df.columns.tolist()
+        current_columns[0] = col
+        npi_df.columns = current_columns
+        # Convert to string type before merging
+        npi_df[col] = npi_df[col].fillna('').astype(str)
+        df[col] = df[col].fillna('').astype(str)
+        # sort df and providers_npi_ids by provider ID
+        df.sort_values(by=col, inplace=True)
+        npi_df.sort_values(by=col, inplace=True)
 
-    # check the IDs are in the same format
-    df['Covered_Recipient_Profile_ID'] = df['Covered_Recipient_Profile_ID'].apply(
-        lambda x: str(int(float(x))) if pd.notna(x) and str(x).strip() != '' else x
-        )
-    
-    return df.merge(providers_npis_ids, on="Covered_Recipient_Profile_ID", how="left")
+        # check the IDs are in the same format
+        df[col] = df[col].apply(
+            lambda x: str(int(float(x))) if pd.notna(x) and str(x).strip() != '' else x
+            )
+        
+        if dataset_type == "general":
+            return df.merge(npi_df, on=col, how="left").copy()
+        
+        else:
+            if col == "Covered_Recipient_Profile_ID":
+                # don't add suffix and don't rename new col from merge
+                df = df.merge(npi_df, on=col, how="left").copy()
+            else:
+                import pdb; pdb.set_trace()
+                pi_npi_num = col.split("_")[1]
+                df = df.merge(npi_df, on=col, how="left", suffixes=('', f'_{pi_npi_num}')).copy()
+                # rename new col from merge to: PI_1_NPI, PI_2_NPI, PI_3_NPI, PI_4_NPI, PI_5_NPI
+                df.rename(columns={f"Covered_Recipient_NPI_{pi_npi_num}": f"PI_{pi_npi_num}_NPI"}, inplace=True)
+    return df
 
 
 def prep_2016_2023_data(filepath, year, dataset_type):
@@ -365,7 +372,7 @@ def run_op_cleaner(file_to_clean, dataset_type, year, year2npis_path):
     npi_set = year2npis[year_str]
 
     # fileout = f"data/final_files/{dataset_type}_payments/{dataset_type}_{year}.csv"
-    fileout = f"data/final_files/{dataset_type}_payments/{dataset_type}_{year}_0404.csv"
+    fileout = f"data/final_files/{dataset_type}_payments/{dataset_type}_{year}.csv"
     
     clean_op_data(
         file_to_clean,

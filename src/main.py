@@ -25,13 +25,13 @@ def main():
     
     # 2. Filter Open Payments (2014-2023) in chunks by target drug names
     prostate_drug_list_path = "data/reference/ProstateDrugList.csv"
-    years = range(2015, 2016)
-    dataset_types = ["general"]
+    years = range(2014, 2015)
+    dataset_types = ["research"]
     # Filter in chunks and save intermediary files
     for dataset_type in dataset_types:
         for year in years:
             start_time = time.time()
-            logger.info("Processing %s, %s", dataset_type, year)
+            # logger.info("Processing %s, %s", dataset_type, year)
             # filter_open_payments(year, dataset_type, prostate_drug_list_path)
             # logger.info("Finished filtering %s payments for %s", dataset_type, year)
             # # Concatenate filtered chunks and save to full file
