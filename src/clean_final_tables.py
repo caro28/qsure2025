@@ -1,5 +1,4 @@
 import pandas as pd
-import os
 import json
 import logging
 from src._utils import (
@@ -76,21 +75,6 @@ def get_prostate_drug_type(drug_name, brand2color):
         int: 1 if the drug is a prostate drug (yellow), 0 otherwise
     """
     return 1 if brand2color[drug_name] == 'yellow' else 0
-
-
-# def is_onc_prescriber(prostate_drug_type, recipient_npi, npi_set):
-#     """
-#     Determine if a recipient is an oncology prescriber based on drug type and NPI
-    
-#     Args:
-#         prostate_drug_type (int): Whether the drug is a prostate drug (1) or not (0)
-#         recipient_npi: The NPI of the covered recipient
-#         npi_set: Set of NPIs that are considered oncology prescribers
-        
-#     Returns:
-#         int: 1 if the recipient is an oncology prescriber for prostate drugs, 0 otherwise
-#     """
-#     return 1 if prostate_drug_type == 1 and recipient_npi in npi_set else 0
 
 
 def is_onc_prescriber(prostate_drug_type, recipient_npis, npi_set):
@@ -198,6 +182,63 @@ def prep_research_data(df, fileout):
     df = df.dropna(subset=npi_cols, how='all')
     return df
 
+
+def merge_cols_2014_2015(df):
+    # 1. Merge drug columns
+    for i in range(1, 6):
+        df[f"Drug_Biological_Device_Med_Sup_{i}"] = df[f"Name_of_Associated_Covered_Drug_or_Biological{i}"].replace("", pd.NA).fillna(
+            df[f"Name_of_Associated_Covered_Device_or_Medical_Supply{i}"]
+        )
+
+        # 2. Drop original columns
+        df.drop([f"Name_of_Associated_Covered_Drug_or_Biological{i}", f"Name_of_Associated_Covered_Device_or_Medical_Supply{i}"], axis=1, inplace=True)
+    return df
+
+
+def add_npis_2014(df, dataset_type, profile_id_cols):
+    # 4. Add NPIs to df using Profile ID
+    providers_npis_ids = pd.read_csv("data/reference/providers_npis_ids.csv", dtype=str)
+
+    for col in profile_id_cols:
+        npi_df = providers_npis_ids.copy()
+        # rename Covered_Recipient_Profile_ID to col in providers_npis_ids for merge
+        current_columns = npi_df.columns.tolist()
+        current_columns[0] = col
+        npi_df.columns = current_columns
+        # Convert to string type before merging
+        npi_df[col] = npi_df[col].fillna('').astype(str)
+        df[col] = df[col].fillna('').astype(str)
+        # sort df and providers_npi_ids by provider ID
+        df.sort_values(by=col, inplace=True)
+        npi_df.sort_values(by=col, inplace=True)
+
+        # check the IDs are in the same format
+        df[col] = df[col].apply(
+            lambda x: str(int(float(x))) if pd.notna(x) and str(x).strip() != '' else x
+            )
+        
+        if dataset_type == "general":
+            return df.merge(npi_df, on=col, how="left").copy()
+        
+        else:
+            if col == "Covered_Recipient_Profile_ID":
+                # don't add suffix and don't rename new col from merge
+                df = df.merge(npi_df, on=col, how="left").copy()
+            else:
+                pi_npi_num = col.split("_")[1]
+                df = df.merge(npi_df, on=col, how="left", suffixes=('', f'_{pi_npi_num}')).copy()
+                # rename new col from merge to: PI_1_NPI, PI_2_NPI, PI_3_NPI, PI_4_NPI, PI_5_NPI
+                df.rename(columns={f"Covered_Recipient_NPI_{pi_npi_num}": f"PI_{pi_npi_num}_NPI"}, inplace=True)
+    return df
+
+
+def prep_2016_2023_data(filepath, year, dataset_type):
+    df = pd.read_csv(filepath, dtype=str)
+
+    # 2. Harmonize column names
+    df = harmonize_col_names(df, year, dataset_type)
+
+
 def clean_op_data(filepath, fileout, year, npi_set, dataset_type):
     """
     Clean and enhance Open Payments data
@@ -257,112 +298,6 @@ def clean_op_data(filepath, fileout, year, npi_set, dataset_type):
     df.astype(str).to_csv(fileout, index=False)
 
 
-def merge_cols_2014_2015(df):
-    # 1. Merge drug columns
-    for i in range(1, 6):
-        df[f"Drug_Biological_Device_Med_Sup_{i}"] = df[f"Name_of_Associated_Covered_Drug_or_Biological{i}"].replace("", pd.NA).fillna(
-            df[f"Name_of_Associated_Covered_Device_or_Medical_Supply{i}"]
-        )
-
-        # 2. Drop original columns
-        df.drop([f"Name_of_Associated_Covered_Drug_or_Biological{i}", f"Name_of_Associated_Covered_Device_or_Medical_Supply{i}"], axis=1, inplace=True)
-    return df
-
-
-def add_npis_2014(df, dataset_type, profile_id_cols):
-    # 4. Add NPIs to df using Profile ID
-    providers_npis_ids = pd.read_csv("data/reference/providers_npis_ids.csv", dtype=str)
-
-    for col in profile_id_cols:
-        npi_df = providers_npis_ids.copy()
-        # rename Covered_Recipient_Profile_ID to col in providers_npis_ids for merge
-        current_columns = npi_df.columns.tolist()
-        current_columns[0] = col
-        npi_df.columns = current_columns
-        # Convert to string type before merging
-        npi_df[col] = npi_df[col].fillna('').astype(str)
-        df[col] = df[col].fillna('').astype(str)
-        # sort df and providers_npi_ids by provider ID
-        df.sort_values(by=col, inplace=True)
-        npi_df.sort_values(by=col, inplace=True)
-
-        # check the IDs are in the same format
-        df[col] = df[col].apply(
-            lambda x: str(int(float(x))) if pd.notna(x) and str(x).strip() != '' else x
-            )
-        
-        if dataset_type == "general":
-            return df.merge(npi_df, on=col, how="left").copy()
-        
-        else:
-            if col == "Covered_Recipient_Profile_ID":
-                # don't add suffix and don't rename new col from merge
-                df = df.merge(npi_df, on=col, how="left").copy()
-            else:
-                import pdb; pdb.set_trace()
-                pi_npi_num = col.split("_")[1]
-                df = df.merge(npi_df, on=col, how="left", suffixes=('', f'_{pi_npi_num}')).copy()
-                # rename new col from merge to: PI_1_NPI, PI_2_NPI, PI_3_NPI, PI_4_NPI, PI_5_NPI
-                df.rename(columns={f"Covered_Recipient_NPI_{pi_npi_num}": f"PI_{pi_npi_num}_NPI"}, inplace=True)
-    return df
-
-
-def prep_2016_2023_data(filepath, year, dataset_type):
-    df = pd.read_csv(filepath, dtype=str)
-
-    # 2. Harmonize column names
-    df = harmonize_col_names(df, year, dataset_type)
-
-
-
-def clean_op_data_rsrch(filepath, fileout, year, npi_set, dataset_type):
-    """
-    Clean and enhance Open Payments data
-    Harmonize column names 
-    Add columns
-        Prostate_drug_type (0/1 based on Color)
-        Drug_Name (generic name)
-        Onc_Prescriber (1 if Prostate_drug_type == 1 AND Covered_Recipient_NPI is in npi_set)
-    """
-    df = pd.read_csv(filepath, dtype=str)
-
-    # 1. Clean df: drop rows where NPI val is nan in all NPI cols
-    npi_cols = df.filter(regex=r'^Principal_Investigator_\d+_NPI$').columns.to_list()
-    npi_cols.append('Covered_Recipient_NPI')
-    rows_all_na = df[npi_cols].isna().all(axis=1)
-    npi_missing = df[rows_all_na]
-    # save dropped rows to csv
-    filename = fileout.split("/")[-1]
-    npi_missing.to_csv(f"data/final_files/research_payments/missing_npis/{filename}", index=False)
-
-    # Drop nan NPI rows from the original DataFrame
-    df = df.dropna(subset=npi_cols, how='all')
-
-    # 2. Harmonize column names
-    df = harmonize_col_names(df, year, dataset_type)
-
-    # 3. Add Columns: Drug_Name, Prostate_Drug_Type, Onc_Prescriber
-    drug_cols = get_harmonized_drug_cols(df)
-    logger.info("Adding new columns to %s", fileout)
-    df = add_new_columns(df, drug_cols, npi_set, dataset_type)
-    assert 'Drug_Name' in df.columns
-    assert 'Prostate_Drug_Type' in df.columns
-    assert 'Onc_Prescriber' in df.columns
-
-    # Remove decimals from cols
-    df['Prostate_Drug_Type'] = df['Prostate_Drug_Type'].astype(float).astype(int).astype(str)
-    df['Onc_Prescriber'] = df['Onc_Prescriber'].astype(float).astype(int).astype(str)
-    df['Covered_Recipient_Profile_ID'] = df['Covered_Recipient_Profile_ID'].apply(
-        lambda x: str(int(x)) if pd.notna(x) else x
-        )
-
-    # fill all nan with ''
-    df.fillna('', inplace=True)
-    
-    # 4. Save to CSV (save all cols as string)
-    df.astype(str).to_csv(fileout, index=False)
-
-
 def run_op_cleaner(file_to_clean, dataset_type, year, year2npis_path):
     # load year2npis_path (json)
     with open(year2npis_path, 'r') as f:
@@ -382,11 +317,3 @@ def run_op_cleaner(file_to_clean, dataset_type, year, year2npis_path):
         dataset_type
         )
     
-    # else:
-    #     clean_op_data_rsrch(
-    #         file_to_clean,
-    #         fileout,
-    #         year,
-    #         npi_set,
-    #         dataset_type
-    #         )

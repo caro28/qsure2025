@@ -57,7 +57,7 @@ def get_op_drug_columns(df: pd.DataFrame, year: int) -> List[str]:
             "Name_of_Associated_Covered_Device_or_Medical_Supply"
         ]
     else:
-        prefixes = "name_of_drug_or_biological_or_device_or_medical_supply_"
+        prefixes = ["name_of_drug_or_biological_or_device_or_medical_supply_"]
     cols = []
     for prefix in prefixes:
         cols.extend([col for col in df.columns if col.lower().startswith(prefix.lower())])
