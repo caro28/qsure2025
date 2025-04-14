@@ -92,36 +92,55 @@ def get_final_npis(pathin_filtered_prescribers, pathout_final_npis):
     npi_years = npi_groups.agg({'Year': list}).reset_index()
 
     year2npis = defaultdict(list)
+
     for idx, row in npi_years.iterrows():
         years = row['Year']
         years = sorted(set(years))
         npi = row['Prscrbr_NPI']
+    
+        years_int = set(int(y) for y in years)
 
-        min_year = years[0]
-        max_year = years[-1]
+        for year in range(2014, 2024):  # Checking target years from 2014 to 2023
+            if year == 2014:
+                if 2013 in years_int:
+                    year2npis[str(year)].append(npi)
+            elif year == 2015:
+                if 2013 in years_int and 2014 in years_int:
+                    year2npis[str(year)].append(npi)
+            else:
+                if all(prev in years_int for prev in [year - 1, year - 2, year - 3]):
+                    year2npis[str(year)].append(npi)
 
-        # deal with special cases
-        if min_year == '2013':
-            if len(years) == 1: # for 2014, years = ['2013']
-                year2npis['2014'].append(npi)
-            elif max_year == '2014': # for 2015, years = [2013', '2014']
-                year2npis['2015'].append(npi)
-            else:
-                # run the 3 consecutive year check, which the 2 cases above will fail / return False
-                result = has_three_consecutive_years(years)
-                if result: # if get a True
-                    target_year = int(max_year) + 1
-                    year2npis[str(target_year)].append(npi)
-                else:
-                    continue
-        else:
-            # run the 3 consecutive year check
-            result = has_three_consecutive_years(years)
-            if result: # if get a True
-                target_year = int(max_year) + 1
-                year2npis[str(target_year)].append(npi)
-            else:
-                continue
+    # for idx, row in npi_years.iterrows():
+    #     years = row['Year']
+    #     years = sorted(set(years))
+    #     npi = row['Prscrbr_NPI']
+
+    #     min_year = years[0]
+    #     max_year = years[-1]
+
+    #     # deal with special cases
+    #     if min_year == '2013':
+    #         if len(years) == 1: # for 2014, years = ['2013']
+    #             year2npis['2014'].append(npi)
+    #         elif max_year == '2014': # for 2015, years = [2013', '2014']
+    #             year2npis['2015'].append(npi)
+    #         else:
+    #             # run the 3 consecutive year check, which the 2 cases above will fail / return False
+    #             result = has_three_consecutive_years(years)
+    #             if result: # if get a True
+    #                 target_year = int(max_year) + 1
+    #                 year2npis[str(target_year)].append(npi)
+    #             else:
+    #                 continue
+    #     else:
+    #         # run the 3 consecutive year check
+    #         result = has_three_consecutive_years(years)
+    #         if result: # if get a True
+    #             target_year = int(max_year) + 1
+    #             year2npis[str(target_year)].append(npi)
+    #         else:
+    #             continue
 
     for year in year2npis.keys():
         year2npis[year] = list(set(year2npis[year]))

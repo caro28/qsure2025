@@ -8,7 +8,6 @@ from src._utils import (
 
 from src.filter_op import (
     filter_open_payments,
-    filter_open_payments_mask
 )
 
 from src.clean_final_tables import (
@@ -26,8 +25,8 @@ def main():
     
     # 2. Filter Open Payments (2014-2023) in chunks by target drug names
     prostate_drug_list_path = "data/reference/ProstateDrugList.csv"
-    years = range(2015, 2024)
-    dataset_types = ["research"]
+    years = range(2014, 2024)
+    dataset_types = ["general", "research"]
     # Filter in chunks and save intermediary files
     for dataset_type in dataset_types:
         for year in years:

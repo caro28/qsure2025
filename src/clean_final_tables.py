@@ -150,7 +150,6 @@ def add_new_columns(df, drug_cols, npi_set, dataset_type):
             df.at[idx, 'Onc_Prescriber'] = result
         
             # break loop because we are keeping the first drug name found in our target list
-            logger.info("Found targetdrug name in col: %s", col)
             break
 
     return df
@@ -307,7 +306,7 @@ def run_op_cleaner(file_to_clean, dataset_type, year, year2npis_path):
     npi_set = year2npis[year_str]
 
     # fileout = f"data/final_files/{dataset_type}_payments/{dataset_type}_{year}.csv"
-    fileout = f"data/final_files/{dataset_type}_payments/{dataset_type}_{year}.csv"
+    fileout = f"data/final_files/{dataset_type}_payments/{dataset_type}_{year}_apr14.csv"
     
     clean_op_data(
         file_to_clean,
