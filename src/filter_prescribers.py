@@ -17,7 +17,18 @@ logger = logging.getLogger(__name__)
 
 def add_years_to_raw_prescriber_chunks(dir_in, dir_out):
     """
-    Add years to raw prescriber chunks
+    Modify all csv files in dir_in to add a Year column
+    Input files: 
+        Manually downloaded from https://data.cms.gov/provider-summary-by-type-of-service/medicare-part-d-prescribers/medicare-part-d-prescribers-by-provider-and-drug
+        Filenames: {year}_{specialty}.csv
+        Years: 2013-2022
+        Specialties: Radiation Oncology, Hematology-Oncology, Medical Oncology, Hematology, Urology
+        Columns: Prscrbr_NPI,Prscrbr_Type,Brnd_Name,Gnrc_Name
+    Output files:
+        Location: dir_out
+        Filenames: {year}_{specialty}.csv
+        Columns: Prscrbr_NPI,Prscrbr_Type,Brnd_Name,Gnrc_Name,Year
+        Rows: same as input files
     """
     for file in os.listdir(dir_in):
         year = file.split('_')[0]
@@ -27,6 +38,17 @@ def add_years_to_raw_prescriber_chunks(dir_in, dir_out):
 
 
 def find_matches_prescribers(chunk, drug_cols, ref_drug_names):
+    """
+    Filters a single csv chunk to find rows with drug names in ref_drug_names.
+    Uses clean_brand_name to prep drug names in chunk row before checking 
+    against ref_drug_names.
+    Params
+        chunk (pd.DataFrame)
+        drug_cols (list): cols to check for drug names [Brnd_Name,Gnrc_Name]
+        ref_drug_names (list): drug names to check for
+    Returns
+        filtered_chunk: pd.DataFrame
+    """
     chunk_row_idx = []
     chunk_matched_rows = 0
     # iterate through rows
@@ -47,6 +69,7 @@ def find_matches_prescribers(chunk, drug_cols, ref_drug_names):
                     break  # Break out of tgt_name loop once we find a match
             if tgt_name in drug_name:  # If we found a match in drug_names loop
                 break  # Break out of col loop to move to next row, else move to next column
+    
     filtered_chunk = chunk.loc[chunk_row_idx] # using row labels, not positions, so changed from iloc to loc
     return filtered_chunk
 
@@ -54,7 +77,12 @@ def find_matches_prescribers(chunk, drug_cols, ref_drug_names):
 def filter_prescribers_by_drug_names(path_in, dir_out):
     """
     Filter Prescribers data to find qualifying NPIs
-    NB: Early years are missing NPIs; get those from https://openpaymentsdata.cms.gov/dataset/23160558-6742-54ff-8b9f-cac7d514ff4e
+    Params
+        path_in (str): path to input file
+            Filename: data/filtered/prescribers/prescribers_filtered_prscrb_type.csv
+            Cols: [Prscrbr_NPI,Prscrbr_Type,Brnd_Name,Gnrc_Name,Year]
+        dir_out (str): path to output directory, ending with "/"
+            Filename: dir_out/prescribers_chunk_{i+1}.csv
     """
     drug_names = ['bicalutamide', 'abiraterone', 'enzalutamide', 'apalutamide', 'darolutamide']
 
@@ -76,7 +104,6 @@ def filter_prescribers_by_drug_names(path_in, dir_out):
     logger.info("Matched %s rows for prescribers", total_matched_rows)
 
 
-# Step 2: Group by id and get sorted unique years where target_names appeared
 def has_three_consecutive_years(years):
     years = sorted(set(years))
     # Check for any 3 consecutive years
@@ -85,8 +112,20 @@ def has_three_consecutive_years(years):
             return True
     return False
 
-
+# Step 2: Group by id and get sorted unique years where target_names appeared
 def get_final_npis(pathin_filtered_prescribers, pathout_final_npis):
+    """
+    Get set of NPIs, per year, of prescribers who prescribed any of the target drugs in
+    previous 3 consecutive years.
+    Params
+        pathin_filtered_prescribers (str): path to csv of prescribers filtered 
+            by prescriber type and drug names
+            Filename: data/filtered/prescribers/prescribers_filtered_type_drug_names.csv
+            Cols: [Prscrbr_NPI,Prscrbr_Type,Brnd_Name,Gnrc_Name,Year]
+        pathout_final_npis (str): path to output json with final set of NPIs per year
+            Filename: data/filtered/prescribers/prescribers_year2npis.json
+            Format: {year: [npis]}
+    """
     df = pd.read_csv(pathin_filtered_prescribers, dtype=str)
     npi_groups = df.groupby('Prscrbr_NPI')
     npi_years = npi_groups.agg({'Year': list}).reset_index()
@@ -100,64 +139,25 @@ def get_final_npis(pathin_filtered_prescribers, pathout_final_npis):
     
         years_int = set(int(y) for y in years)
 
-        for year in range(2014, 2024):  # Checking target years from 2014 to 2023
+        for year in range(2014, 2024):
             if year == 2014:
-                if 2013 in years_int:
+                if 2013 in years_int: # for 2014, years = ['2013']
                     year2npis[str(year)].append(npi)
             elif year == 2015:
-                if 2013 in years_int and 2014 in years_int:
+                if 2013 in years_int and 2014 in years_int: # for 2015, years = [2013', '2014']
                     year2npis[str(year)].append(npi)
             else:
                 if all(prev in years_int for prev in [year - 1, year - 2, year - 3]):
                     year2npis[str(year)].append(npi)
 
-    # for idx, row in npi_years.iterrows():
-    #     years = row['Year']
-    #     years = sorted(set(years))
-    #     npi = row['Prscrbr_NPI']
-
-    #     min_year = years[0]
-    #     max_year = years[-1]
-
-    #     # deal with special cases
-    #     if min_year == '2013':
-    #         if len(years) == 1: # for 2014, years = ['2013']
-    #             year2npis['2014'].append(npi)
-    #         elif max_year == '2014': # for 2015, years = [2013', '2014']
-    #             year2npis['2015'].append(npi)
-    #         else:
-    #             # run the 3 consecutive year check, which the 2 cases above will fail / return False
-    #             result = has_three_consecutive_years(years)
-    #             if result: # if get a True
-    #                 target_year = int(max_year) + 1
-    #                 year2npis[str(target_year)].append(npi)
-    #             else:
-    #                 continue
-    #     else:
-    #         # run the 3 consecutive year check
-    #         result = has_three_consecutive_years(years)
-    #         if result: # if get a True
-    #             target_year = int(max_year) + 1
-    #             year2npis[str(target_year)].append(npi)
-    #         else:
-    #             continue
-
+    # deduplicate npis
     for year in year2npis.keys():
         year2npis[year] = list(set(year2npis[year]))
     
-    # Convert defaultdict to a regular dictionary
+    # Convert defaultdict to dict for saving to json
     year2npis = dict(year2npis)
-    # save to json
     with open(pathout_final_npis, 'w') as f:
         json.dump(year2npis, f)
-
-
-def get_set_npis(npi_path):
-    # load npi_list
-    npi_df = pd.read_csv(npi_path)
-    assert len(npi_df['Prscrbr_NPI'].value_counts().unique()) == 1
-    npi_set = npi_df['Prscrbr_NPI'].astype('string').to_list()
-    return npi_set
 
 
 

@@ -1,149 +1,12 @@
-import unittest
+import json
 import pandas as pd
-import os
-import shutil
-import tempfile
 from src.filter_prescribers import (
+    add_years_to_raw_prescriber_chunks,
+    find_matches_prescribers,
     filter_prescribers_by_drug_names,
-    has_three_consecutive_years,
     get_final_npis,
     get_set_npis,
-    add_years_to_raw_prescriber_chunks,
 )
-
-
-class TestFilterPrescribersByDrugNames(unittest.TestCase):
-    def test_filter_prescribers_by_drug_names(self):
-        # Create a temporary directory for output
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Add path separator to temp_dir
-            temp_dir = f"{temp_dir}/"
-            
-            # Create a test input CSV file
-            test_data = pd.DataFrame({
-                'Brnd_Name': ['bicalutamide', 'aspirin', 'enzalutamide', 'tylenol'],
-                'Gnrc_Name': ['drug1', 'drug2', 'drug3', 'drug4'],
-                'Other_Col': [1, 2, 3, 4]
-            })
-            
-            # Save test data to temporary CSV
-            input_path = os.path.join(temp_dir, 'test_input.csv')
-            test_data.to_csv(input_path, index=False)
-            
-            # Run the function
-            filter_prescribers_by_drug_names(input_path, temp_dir)
-            
-            # Check if chunk file exists
-            chunk_file = f"{temp_dir}prescribers_chunk_1.csv"
-            assert os.path.exists(chunk_file)
-            
-            # Read and verify results
-            result_df = pd.read_csv(chunk_file)
-            assert len(result_df) == 2  # Should only have rows with bicalutamide and enzalutamide
-            assert 'bicalutamide' in result_df['Brnd_Name'].values
-            assert 'enzalutamide' in result_df['Brnd_Name'].values
-
-    def test_empty_input(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Add path separator to temp_dir
-            temp_dir = f"{temp_dir}/"
-            
-            # Create empty test input
-            test_data = pd.DataFrame({
-            'Brnd_Name': [],
-            'Gnrc_Name': [],
-            'Other_Col': []
-        })
-        
-            input_path = os.path.join(temp_dir, 'test_input.csv')
-            test_data.to_csv(input_path, index=False)
-            
-            # Run the function
-            filter_prescribers_by_drug_names(input_path, temp_dir)
-            
-            # For empty input, no chunk files should be created
-            chunk_file = f"{temp_dir}prescribers_chunk_1.csv"
-            assert not os.path.exists(chunk_file)
-
-
-def test_has_three_consecutive_years():
-    # Test case with three consecutive years
-    consecutive = pd.DataFrame({
-        'Year': ['2018', '2019', '2020', '2021'],
-    })
-    assert has_three_consecutive_years(consecutive) is True
-
-    # Test case with non-consecutive years
-    non_consecutive = pd.DataFrame({
-        'Year': ['2018', '2020', '2022'],
-    })
-    assert has_three_consecutive_years(non_consecutive) is False
-
-    # Test case with exactly three consecutive years
-    exact_three = pd.DataFrame({
-        'Year': ['2018', '2019', '2020'],
-    })
-    assert has_three_consecutive_years(exact_three) is True
-
-    # Test case with two years only
-    two_years = pd.DataFrame({
-        'Year': ['2018', '2019'],
-    })
-    assert has_three_consecutive_years(two_years) is False
-
-    # Test case with duplicate years
-    duplicate_years = pd.DataFrame({
-        'Year': ['2018', '2018', '2019', '2020'],
-    })
-    assert has_three_consecutive_years(duplicate_years) is True
-
-    # Test case with empty DataFrame
-    empty_df = pd.DataFrame({
-        'Year': [],
-    })
-    assert has_three_consecutive_years(empty_df) is False
-
-
-def test_get_final_npis(tmp_path):
-    # Create test input DataFrame with proper data types
-    test_data = pd.DataFrame({
-        'Prscrbr_NPI': ['NPI1', 'NPI1', 'NPI1', 'NPI2', 'NPI2', 'NPI3'],
-        'Year': [2018, 2019, 2020, 2018, 2020, 2018],
-        'Prscrbr_Type': ['Type1', 'Type1', 'Type1', 'Type2', 'Type2', 'Type3'],
-        'Brnd_Name': ['Drug1', 'Drug2', 'Drug3', 'Drug4', 'Drug5', 'Drug6'],
-        'Gnrc_Name': ['Gen1', 'Gen2', 'Gen3', 'Gen4', 'Gen5', 'Gen6'],
-        'Extra_Col': ['X1', 'X2', 'X3', 'X4', 'X5', 'X6']
-    })
-
-    # Convert Year to string after DataFrame creation to ensure proper formatting
-    test_data['Year'] = test_data['Year'].astype(str)
-
-    # Create input and output paths
-    test_input = str(tmp_path / "test_input.csv")
-    test_output = str(tmp_path / "prescribers_final_npis.csv")
-
-    # Save test data to input file
-    test_data.to_csv(test_input, index=False)
-
-    # Run function with input and output paths
-    get_final_npis(test_input, test_output)
-
-    # Read and verify results
-    result_df = pd.read_csv(test_output)
-
-    # Test correct columns are present
-    expected_columns = ['Prscrbr_NPI', 'Prscrbr_Type', 'Brnd_Name', 'Gnrc_Name', 'Year']
-    assert list(result_df.columns) == expected_columns
-
-    # Test only NPI1 is present (only one with consecutive years)
-    assert len(result_df) == 1
-    assert result_df['Prscrbr_NPI'].iloc[0] == 'NPI1'
-
-    # Test no duplicate NPIs
-    assert len(result_df['Prscrbr_NPI'].unique()) == len(result_df)
-
-    # Test extra columns were dropped
-    assert 'Extra_Col' not in result_df.columns
 
 
 def test_add_years_to_raw_prescriber_chunks(tmp_path):
@@ -184,49 +47,135 @@ def test_add_years_to_raw_prescriber_chunks(tmp_path):
         
         # Check Year column was added with correct value
         assert 'Year' in result_df.columns
+
         # Convert both to strings for comparison
-        assert all(result_df['Year'].astype(str) == expected_year)
+        assert all(result_df['Year'].astype(str) == str(expected_year))
 
         # Check original columns are preserved
         original_cols = test_files[filename].columns
         for col in original_cols:
             assert col in result_df.columns
+        
+        # Check number of rows is the same
+        assert len(result_df) == len(test_files[filename])
 
 
-def test_get_set_npis(tmp_path):
-    # Create test input DataFrame with unique NPIs
+class TestFindMatchesPrescribers():
+    def test_find_matches_prescribers_matched(self):
+        # mock ref_drug_names
+        ref_drug_names = ['bicalutamide', 'enzalutamide']
+        # mock drug_cols
+        drug_cols = ['Brnd_Name', 'Gnrc_Name']
+        # mock chunk
+        chunk = pd.DataFrame({
+            'Brnd_Name': ['bicalutamide', 'aspirin', 'enzalutamide', 'tylenol'],
+            'Gnrc_Name': ['drug1', 'drug2', 'drug3', 'bicalutamide'],
+            'Other_Col': [1, 2, 3, 4]
+        })
+
+        # run function
+        filtered_chunk = find_matches_prescribers(chunk, drug_cols, ref_drug_names)
+        assert len(filtered_chunk) == 3
+        assert filtered_chunk['Other_Col'].to_list() == [1, 3, 4]
+    
+    def test_find_matches_prescribers_empty(self):
+        # mock ref_drug_names
+        ref_drug_names = ['bicalutamide', 'enzalutamide']
+        # mock drug_cols
+        drug_cols = ['Brnd_Name', 'Gnrc_Name']
+        # mock chunk
+        chunk = pd.DataFrame({
+            'Brnd_Name': ['drug1', 'drug2', 'drug3', 'drug4'],
+            'Gnrc_Name': ['drug1', 'drug2', 'drug3', 'drug4'],
+            'Other_Col': [1, 2, 3, 4]
+        })
+
+        # run function
+        filtered_chunk = find_matches_prescribers(chunk, drug_cols, ref_drug_names)
+        assert len(filtered_chunk) == 0
+        assert filtered_chunk.empty
+
+
+class TestFilterPrescribersByDrugNames():
+    def test_filter_prescribers_by_drug_names_matched(self, tmp_path):
+        # mock test input file (prescribers_filtered_prscrb_type.csv)
+        test_data = pd.DataFrame({
+            'Brnd_Name': ['bicalutamide', 'aspirin', 'drug1', 'drug2'],
+            'Gnrc_Name': ['drug3', 'drug4', 'enzalutamide', 'drug5'],
+            'Other_Col': [1, 2, 3, 4]
+        })        
+        # save test data to input file
+        test_data.to_csv(tmp_path / "prescribers_filtered_prscrb_type.csv", index=False)
+
+        # mock dir_out
+        dir_out = tmp_path / "output"
+        dir_out.mkdir()
+        
+        # run function (add "/" to end of dir_out because function expects dir_out to end with "/")
+        filter_prescribers_by_drug_names(tmp_path / "prescribers_filtered_prscrb_type.csv", f"{dir_out}/")
+
+        # verify output
+        assert (dir_out / "prescribers_chunk_1.csv").exists()
+        result_df = pd.read_csv(dir_out / "prescribers_chunk_1.csv")
+        assert len(result_df) == 2
+        assert result_df['Other_Col'].tolist() == [1, 3]
+
+    def test_filter_prescribers_by_drug_names_empty(self, tmp_path):
+        # mock test input file (prescribers_filtered_prscrb_type.csv)
+        test_data = pd.DataFrame({
+            'Brnd_Name': ['drug1', 'drug2', 'drug3', 'drug4'],
+            'Gnrc_Name': ['drug1', 'drug2', 'drug3', 'drug4'],
+            'Other_Col': [1, 2, 3, 4]
+        })        
+        # save test data to input file
+        test_data.to_csv(tmp_path / "prescribers_filtered_prscrb_type.csv", index=False)
+
+        # mock dir_out
+        dir_out = tmp_path / "output"
+        dir_out.mkdir()
+        
+        # run function
+        filter_prescribers_by_drug_names(tmp_path / "prescribers_filtered_prscrb_type.csv", dir_out)
+
+        # verify output
+        assert not (dir_out / "prescribers_chunk_1.csv").exists()
+
+
+def test_get_final_npis(tmp_path):
+    # Create test input DataFrame with proper data types
     test_data = pd.DataFrame({
-        'Prscrbr_NPI': ['NPI1', 'NPI2', 'NPI3'],
-        'Prscrbr_Type': ['Type1', 'Type2', 'Type3'],
-        'Brnd_Name': ['Drug1', 'Drug2', 'Drug3'],
-        'Gnrc_Name': ['Gen1', 'Gen2', 'Gen3']
+        'Prscrbr_NPI': ['NPI1', 'NPI1', 'NPI1', 'NPI2', 'NPI1', 'NPI2'],
+        'Prscrbr_Type': ['TypeA', 'TypeA', 'TypeA', 'TypeB', 'TypeB', 'TypeC'],
+        'Brnd_Name': ['Drug1', 'Drug1', 'Drug2', 'Drug2', 'Drug1', 'Drug2'],
+        'Gnrc_Name': ['Gen1', 'Gen1', 'Gen1', 'Gen2', 'Gen2', 'Gen2'],
+        'Year': [2018, 2019, 2020, 2018, 2020, 2018]
     })
 
-    # Create and save test input file
-    test_input = tmp_path / "prescribers_final_npis.csv"
+    # mock input and output paths
+    test_input = str(tmp_path / "test_input.csv")
+    test_output = str(tmp_path / "test_output.json")
+
+    # save test data to input file
     test_data.to_csv(test_input, index=False)
 
-    # Temporarily modify the function to use test path
-    import src.filter_prescribers
-    original_path = "data/filtered/prescribers/prescribers_final_npis.csv"
-    src.filter_prescribers.npi_path = str(test_input)
+    # run function
+    get_final_npis(test_input, test_output)
 
-    try:
-        # Run function
-        result = src.filter_prescribers.get_set_npis(str(test_input))
-        print(result)
+    # verify output
+    with open(test_output, 'r') as f:
+        result_json = json.load(f)
 
-        # Test the results
-        assert len(result) == 3
-        assert set(result) == {'NPI1', 'NPI2', 'NPI3'}
-        # Each NPI should appear exactly once
-        assert len(result.value_counts().unique()) == 1
-        assert result.value_counts().unique()[0] == 1
+    # verify dtyp of keys and values in json
+    assert isinstance(result_json, dict)
+    assert all(isinstance(key, str) for key in result_json.keys())
+    assert all(isinstance(value, list) for value in result_json.values())
+    assert all(isinstance(item, str) for sublist in result_json.values() for item in sublist)
 
-    finally:
-        # Restore original path
-        src.filter_prescribers.npi_path = original_path
+    # verify only NPI1 is present
+    assert result_json['2021'] == ['NPI1']
+
+    # verify no duplicate NPIs
+    assert len(result_json['2021']) == 1
 
 
-if __name__ == '__main__':
-    unittest.main()
+
