@@ -14,6 +14,16 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 def get_ref_drug_names(ref_path):
+    """
+    Get the list of unique drug names from the reference file. Gets both brand
+    and generic names.
+    Args:
+        ref_path (str): path to ProstateDrugList.csv
+            Cols: [Generic_name,Color,Brand_name1,Brand_name2,Brand_name3,Brand_name4]
+                Color: yellow or green
+    Returns:
+        list of unique drug names (brand and generic)
+    """
     # Load ProstateDrugList.csv
     ref_df = pd.read_csv(ref_path)
     brand_cols = [col for col in ref_df.columns if col.startswith('Brand_name')]
@@ -36,6 +46,11 @@ def get_ref_drug_names(ref_path):
 def get_op_raw_path(year, dataset_type):
     """
     Get the path to the raw Open Payments data for a given year and dataset type
+    Args:
+        year (int): year of data
+        dataset_type (str): "general" or "research"
+    Returns:
+        str: path to raw file for given year and dataset type
     """
     acronym = "GNRL" if dataset_type == "general" else "RSRCH"
     parent_dir = "data/raw/"
@@ -50,7 +65,15 @@ def get_op_raw_path(year, dataset_type):
     raise ValueError(f"No file found for {year} {dataset_type}_payments")
 
 def get_op_drug_columns(df: pd.DataFrame, year: int) -> List[str]:
-    """Get columns that contain drug names, case-insensitive"""
+    """
+    Get columns that contain drug names, case-insensitive. Handles different
+    column names for 2014-2015 vs 2016-2023.
+    Args:
+        df (pd.DataFrame): raw OP data file to get drug columns from
+        year (int): year of OP data
+    Returns:
+        cols (list): drug column names
+    """
     if int(year) < 2016:
         prefixes = [
             "Name_of_Associated_Covered_Drug_or_Biological",

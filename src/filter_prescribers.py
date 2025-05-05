@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 def add_years_to_raw_prescriber_chunks(dir_in, dir_out):
     """
     Modify all csv files in dir_in to add a Year column
+    Args:
+        dir_in (str): path to input directory
+        dir_out (str): path to output directory
     Input files: 
         Manually downloaded from https://data.cms.gov/provider-summary-by-type-of-service/medicare-part-d-prescribers/medicare-part-d-prescribers-by-provider-and-drug
         Filenames: {year}_{specialty}.csv
@@ -42,11 +45,11 @@ def find_matches_prescribers(chunk, drug_cols, ref_drug_names):
     Filters a single csv chunk to find rows with drug names in ref_drug_names.
     Uses clean_brand_name to prep drug names in chunk row before checking 
     against ref_drug_names.
-    Params
+    Args:
         chunk (pd.DataFrame)
         drug_cols (list): cols to check for drug names [Brnd_Name,Gnrc_Name]
         ref_drug_names (list): drug names to check for
-    Returns
+    Returns:
         filtered_chunk: pd.DataFrame
     """
     chunk_row_idx = []
@@ -76,13 +79,15 @@ def find_matches_prescribers(chunk, drug_cols, ref_drug_names):
 
 def filter_prescribers_by_drug_names(path_in, dir_out):
     """
-    Filter Prescribers data to find qualifying NPIs
-    Params
+    Filter Prescribers data to find qualifying NPIs. Saves filtered
+    chunks (with matches) to individual csv files.
+    Args:
         path_in (str): path to input file
             Filename: data/filtered/prescribers/prescribers_filtered_prscrb_type.csv
             Cols: [Prscrbr_NPI,Prscrbr_Type,Brnd_Name,Gnrc_Name,Year]
-        dir_out (str): path to output directory, ending with "/"
-            Filename: dir_out/prescribers_chunk_{i+1}.csv
+        dir_out (str): path to directory where filtered chunks are saved, 
+            ending with "/"
+            Filenames: dir_out/prescribers_chunk_{i+1}.csv
     """
     drug_names = ['bicalutamide', 'abiraterone', 'enzalutamide', 'apalutamide', 'darolutamide']
 
@@ -104,20 +109,12 @@ def filter_prescribers_by_drug_names(path_in, dir_out):
     logger.info("Matched %s rows for prescribers", total_matched_rows)
 
 
-def has_three_consecutive_years(years):
-    years = sorted(set(years))
-    # Check for any 3 consecutive years
-    for i in range(len(years) - 2):
-        if int(years[i + 2]) - int(years[i]) == 2:
-            return True
-    return False
-
 # Step 2: Group by id and get sorted unique years where target_names appeared
 def get_final_npis(pathin_filtered_prescribers, pathout_final_npis):
     """
     Get set of NPIs, per year, of prescribers who prescribed any of the target drugs in
     previous 3 consecutive years.
-    Params
+    Args:
         pathin_filtered_prescribers (str): path to csv of prescribers filtered 
             by prescriber type and drug names
             Filename: data/filtered/prescribers/prescribers_filtered_type_drug_names.csv
