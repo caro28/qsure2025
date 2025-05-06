@@ -87,6 +87,8 @@ def get_op_drug_columns(df: pd.DataFrame, year: int) -> List[str]:
     return cols
 
 def find_matches_op(chunk, drug_cols, ref_drug_names):
+    """
+    """
     chunk_row_idx = []
     chunk_matched_rows = 0
     # iterate through rows
@@ -108,6 +110,7 @@ def find_matches_op(chunk, drug_cols, ref_drug_names):
             if drug_name == tgt_name:  # If we found a match in drug_names loop
                 break  # Break out of col loop to move to next row, else move to next column
     filtered_chunk = chunk.loc[chunk_row_idx] # using row labels, not positions, so changed from iloc to loc
+    print(f"$$$$$$$$$$ {filtered_chunk}")
     return filtered_chunk
 
 def filter_open_payments(year, dataset_type, ref_path):

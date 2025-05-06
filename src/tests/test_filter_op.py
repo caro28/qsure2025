@@ -12,6 +12,7 @@ from src.filter_op import (
     get_ref_drug_names,
     get_op_raw_path,
     get_op_drug_columns,
+    find_matches_op,
     filter_open_payments
 )
 
@@ -62,42 +63,70 @@ class TestGetOpRawPath():
 
 class TestGetOpDrugColumns():
     def test_op_drug_cols_2014_2015(self):
-        # TODO: mock op df
         op_df = pd.DataFrame(columns=[
-            "Name_of_Associated_Covered_Drug_or_Biological",
-            "Name_of_Associated_Covered_Device_or_Medical_Supply"
+            "Name_of_Associated_Covered_Drug_or_Biological1",
+            "Name_of_Associated_Covered_Drug_or_Biological100",
+            "Name_of_Associated_Covered_Device_or_Medical_Supply1",
+            "Name_of_Associated_Covered_Device_or_Medical_Supply100",
+            "Other_Column",
+            "Name_of_Associated_"
         ])
+        year = 2014
+        drug_cols = get_op_drug_columns(op_df, year)
+        expected_cols = [
+            "Name_of_Associated_Covered_Drug_or_Biological1",
+            "Name_of_Associated_Covered_Drug_or_Biological100",
+            "Name_of_Associated_Covered_Device_or_Medical_Supply1",
+            "Name_of_Associated_Covered_Device_or_Medical_Supply100"
+        ]
+        assert set(drug_cols) == set(expected_cols)
+    
+    def test_op_drug_cols_2016_2023(self):
+        op_df = pd.DataFrame(columns=[
+            "name_of_drug_or_biological_or_device_or_medical_supply_1",
+            "name_of_drug_or_biological_or_device_or_medical_supply_100",
+            "name_of_device_or_medical_supply_1",
+            "name_of_device_or_medical_supply_100",
+            "Other_Column",
+            "name_of_drug_or_biolo",
+        ])
+        year = 2016
+        drug_cols = get_op_drug_columns(op_df, year)
+        expected_cols = [
+            "name_of_drug_or_biological_or_device_or_medical_supply_1",
+            "name_of_drug_or_biological_or_device_or_medical_supply_100",
+        ]
+        assert set(drug_cols) == set(expected_cols)
+
+
+class TestFindMatchesOp():
+    def test_find_matches_op_matched(self):
         # mock op df
-        op_df = pd.DataFrame(columns=[
-            "Name_of_Associated_Covered_Drug_or_Biological",
-            "Name_of_Associated_Covered_Device_or_Medical_Supply"
-        ])
-# class TestGetOpDrugColumns(unittest.TestCase):
-#     def test_get_drug_columns(self):
-#         # Create test dataframe with mix of drug and non-drug columns
-#         test_df = pd.DataFrame(columns=[
-#             'Name_of_Drug_or_Biological_or_Device_or_Medical_Supply_1',  # Should match
-#             'name_of_drug_or_biological_or_device_or_medical_supply_2',  # Should match
-#             'Record_ID',                                                 # Should not match
-#             'Physician_Name',                                           # Should not match
-#             'NAME_OF_DRUG_OR_BIOLOGICAL_OR_DEVICE_OR_MEDICAL_SUPPLY_3'  # Should match
-#         ])
+        op_chunk = pd.DataFrame(
+            {
+                "name_of_drug_or_biological_or_device_or_medical_supply_1": ["Lynparza", "drug1", "EnzalutAmide", "drug2"],
+                "name_of_drug_or_biological_or_device_or_medical_supply_2": ["drug3", "tylenol", "jevtana", "drug4"],
+            }
+        )
+        drug_cols = [
+            "name_of_drug_or_biological_or_device_or_medical_supply_1",
+            "name_of_drug_or_biological_or_device_or_medical_supply_2"
+        ]
+        ref_drug_names = ["lynparza", "enzalutamide", "jevtana"]
         
-#         # Get drug columns
-#         drug_cols = get_op_drug_columns(test_df)
+        filtered_chunk = find_matches_op(op_chunk, drug_cols, ref_drug_names)
         
-#         # Check results
-#         expected_cols = [
-#             'Name_of_Drug_or_Biological_or_Device_or_Medical_Supply_1',
-#             'name_of_drug_or_biological_or_device_or_medical_supply_2',
-#             'NAME_OF_DRUG_OR_BIOLOGICAL_OR_DEVICE_OR_MEDICAL_SUPPLY_3'
-#         ]
-        
-#         # Check that we found all drug columns regardless of case
-#         self.assertEqual(set(drug_cols), set(expected_cols))
-        
-#         # Check that we found exactly the right number of columns
-#         self.assertEqual(len(drug_cols), 3)
+        expected_chunk = pd.DataFrame(
+            {
+                "name_of_drug_or_biological_or_device_or_medical_supply_1": ["Lynparza", "EnzalutAmide"],
+                "name_of_drug_or_biological_or_device_or_medical_supply_2": ["drug3", "jevtana"],
+            },
+            index=[0,2] # TODO: check it's ok that find_matches_op behaves this way
+        )
+        assert filtered_chunk.equals(expected_chunk)
+
+    def test_find_matches_op_no_matches(self):
+        pass
 
 
 # class TestFilterOpenPayments(unittest.TestCase):
