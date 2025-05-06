@@ -113,20 +113,53 @@ class TestFindMatchesOp():
             "name_of_drug_or_biological_or_device_or_medical_supply_2"
         ]
         ref_drug_names = ["lynparza", "enzalutamide", "jevtana"]
-        
         filtered_chunk = find_matches_op(op_chunk, drug_cols, ref_drug_names)
-        
         expected_chunk = pd.DataFrame(
             {
                 "name_of_drug_or_biological_or_device_or_medical_supply_1": ["Lynparza", "EnzalutAmide"],
                 "name_of_drug_or_biological_or_device_or_medical_supply_2": ["drug3", "jevtana"],
             },
-            index=[0,2] # TODO: check it's ok that find_matches_op behaves this way
+            index=[0,2]
         )
         assert filtered_chunk.equals(expected_chunk)
 
     def test_find_matches_op_no_matches(self):
+        # mock op df
+        op_chunk = pd.DataFrame(
+            {
+                "name_of_drug_or_biological_or_device_or_medical_supply_1": ["tylenol", "drug1", "adVIL", "tUms"],
+                "name_of_drug_or_biological_or_device_or_medical_supply_2": ["drug3", "tylenol", "drug4", "drug5"],
+            }
+        )
+        drug_cols = [
+            "name_of_drug_or_biological_or_device_or_medical_supply_1",
+            "name_of_drug_or_biological_or_device_or_medical_supply_2"
+        ]
+        ref_drug_names = ["lynparza", "enzalutamide", "jevtana"]
+        filtered_chunk = find_matches_op(op_chunk, drug_cols, ref_drug_names)
+        expected_chunk = pd.DataFrame(
+            columns=drug_cols
+        )
+        assert filtered_chunk.empty
+        assert filtered_chunk.equals(expected_chunk)
+
+
+class TestFilterOpenPayments():
+    def test_filter_open_payments_2016_2023(self, tmp_path):
+        # year = 2022
+        # dataset_type = "general"
+        # ref_path = "data/raw/ProstateDrugList.csv"
+
+        # test_data = {
+        # "name_of_drug_or_biological_or_device_or_medical_supply_1": ["Lynparza", "drug1", "EnzalutAmide", "drug2"],
+        # "name_of_drug_or_biological_or_device_or_medical_supply_2": ["drug3", "tylenol", "jevtana", "drug4"],
+        # "other_column": ["other1", "other2", "other3", "other4"]
+        # }
+        # pd.DataFrame(test_data).to_csv(tmp_path / "ProstateDrugList.csv", index=False)
+
         pass
+
+
 
 
 # class TestFilterOpenPayments(unittest.TestCase):

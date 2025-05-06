@@ -88,6 +88,16 @@ def get_op_drug_columns(df: pd.DataFrame, year: int) -> List[str]:
 
 def find_matches_op(chunk, drug_cols, ref_drug_names):
     """
+    In chunk, finds rows with drug names in drug_cols that match ref_drug_names.
+    Applies clean_brand_name to drug_name before matching.
+    Args:
+        chunk (pd.DataFrame): chunk of raw OP data, max size 100k rows
+        drug_cols (list): list of OP column names that contain drug names
+        ref_drug_names (list): list of drug names to match against
+    Returns:
+        filtered_chunk (pd.DataFrame): chunk of raw OP data with only the rows 
+            that match the drug names. If no matches, returns empty 
+            pd.DataFrame (with chunk column names)
     """
     chunk_row_idx = []
     chunk_matched_rows = 0
@@ -110,13 +120,20 @@ def find_matches_op(chunk, drug_cols, ref_drug_names):
             if drug_name == tgt_name:  # If we found a match in drug_names loop
                 break  # Break out of col loop to move to next row, else move to next column
     filtered_chunk = chunk.loc[chunk_row_idx] # using row labels, not positions, so changed from iloc to loc
-    print(f"$$$$$$$$$$ {filtered_chunk}")
     return filtered_chunk
 
 def filter_open_payments(year, dataset_type, ref_path):
     """
-    Filter Open Payments data for a given year and dataset type
-    (General or Research) based on exact drug name matches
+    Filter Open Payments data for a given year and dataset type, keeping only
+     rows that contain the drug names in ProstateDrugList.csv.
+     Process raw OP file in chunks of 100k rows and saves filtered chunks to 
+     csv in data/filtered/{dataset_type}_payments/{year}_chunks/
+    Args:
+        year (int): year of OP data
+        dataset_type (str): "general" or "research"
+        ref_path (str): path to ProstateDrugList.csv
+    Returns:
+        None
     """
     # get cleaned drug names (brand and generic) from ProstateDrugList.csv
     ref_drug_names = get_ref_drug_names(ref_path)
