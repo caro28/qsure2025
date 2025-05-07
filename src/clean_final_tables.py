@@ -11,20 +11,32 @@ setup_logging()
 logger = logging.getLogger(__name__)    
 
 
-def build_map_year2cols(dataset_type):
+def build_map_year2cols(dataset_type, path_to_cols):
     """
-    Build a map of year to columns
+    Build a map of year to column names for column harmonization. Uses 
+    Args:
+        dataset_type (str): "general" or "research"
+    Returns:
+        dict: year to list of column names
     """
     year2cols = {}
-    grace_cols = pd.read_csv(f"data/reference/col_names/{dataset_type}_payments/grace_cols.csv")
+    grace_cols = pd.read_csv(path_to_cols)
     years = grace_cols.columns
     for year in years:
         year2cols[year] = grace_cols[year].dropna().to_list()
     return year2cols
 
-def build_ref_data_maps():
+def build_ref_data_maps(ref_path):
+    """
+    Build maps of brand names to generic names and color (green/yellow). Preps 
+    drug names for matching by calling clean_generic_name and clean_brand_name.
+    Args:
+        ref_path (str): path to ProstateDrugList.csv
+    Returns:
+        tuple (brand2generic, brand2color): dicts of brand names to generic names and color
+    """
     # load ProstateDrugList.csv
-    ref_df = pd.read_csv("data/reference/ProstateDrugList.csv")
+    ref_df = pd.read_csv(ref_path)
     brand2generic = {}
     brand2color = {}
     # keys: values in column 'Generic_name', values: value in Brand_name1, Brand_name2, Brand_name3, Brand_name4 for that row
@@ -53,8 +65,9 @@ def harmonize_col_names(df, year, dataset_type):
     """
     Harmonize column names using a map of year to columns from grace_cols.csv
     """
+    path_to_harmonized_cols =f"data/reference/col_names/{dataset_type}_payments/grace_cols.csv"
     # Get map of year2cols
-    year2cols = build_map_year2cols(dataset_type)
+    year2cols = build_map_year2cols(dataset_type, path_to_harmonized_cols)
     df.columns = year2cols[str(year)]
     return df
 
@@ -104,7 +117,7 @@ def is_onc_prescriber(prostate_drug_type, recipient_npis, npi_set):
 
 
 def add_new_columns(df, drug_cols, npi_set, dataset_type):
-    brand2generic, brand2color = build_ref_data_maps()
+    brand2generic, brand2color = build_ref_data_maps("data/reference/ProstateDrugList.csv")
 
     for idx, row in df.iterrows():
         # iterate through drug_cols
