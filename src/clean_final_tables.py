@@ -60,7 +60,6 @@ def build_ref_data_maps(ref_path):
         # add generic names to both maps
         brand2generic[generic_name] = generic_name
         brand2color[generic_name] = row['Color']
-
     return brand2generic, brand2color
 
 def harmonize_col_names(df, year, dataset_type, path_to_harmonized_cols):
@@ -225,10 +224,14 @@ def prep_research_data(df, filename, dir_missing_npis):
     Returns:
         pd.DataFrame: OP df with rows dropped where NPI val is nan in all NPI cols
     """
+    # TODO: which is right? Look at my test: is this the expected behavior?
     # 1. Clean df: drop rows where NPI val is nan in all NPI cols
-    npi_cols = df.filter(regex=r'^Principal_Investigator_\d+_NPI$').columns.to_list()
+    # npi_cols = df.filter(regex=r'^Principal_Investigator_\d+_NPI$').columns.to_list()
+    npi_cols = df.filter(regex=r'^PI_\d+_NPI$').columns.to_list()
+    # print(f"=============== npi_cols: {npi_cols}")
     npi_cols.append('Covered_Recipient_NPI')
     rows_all_na = df[npi_cols].isna().all(axis=1)
+    # print(f"=============== rows_all_na: {rows_all_na}")
     npi_missing = df[rows_all_na]
     # save dropped rows to csv
     npi_missing.to_csv(f"{dir_missing_npis}{filename}", index=False)
@@ -240,6 +243,7 @@ def prep_research_data(df, filename, dir_missing_npis):
         df[col] = df[col].apply(
             lambda x: str(int(float(x))) if pd.notna(x) and str(x).strip() != '' else x
             )
+    # print(f"$$$$$$$$$$$$$$ df: {df}")
     return df
 
 
@@ -331,6 +335,7 @@ def add_npis_2014(df, dataset_type, profile_id_cols, providers_npis_ids):
 def clean_op_data(
         filepath, 
         fileout, 
+        filename,
         year, 
         npi_set, 
         dataset_type, 
@@ -355,6 +360,8 @@ def clean_op_data(
             general vs research)
         path_providers_npis_ids (str): path to providers_npis_ids.csv
         dir_missing_npis (str): directory to save rows dropped due to missing NPIs
+    Returns:
+        None
     """
     df = pd.read_csv(filepath, dtype=str)
     
@@ -379,9 +386,9 @@ def clean_op_data(
             df = add_npis_2014(df, dataset_type, profile_id_cols, providers_npis_ids)
     else:
         df = harmonize_col_names(df, year, dataset_type, path_to_harmonized_cols)
+        # print(f"%%%%%%%%%%%%% df: {df}")
     
     # Drop rows where NPI is nan and clean string cols formatting
-    filename = fileout.split("/")[-1]
     if dataset_type == "general":
         df = prep_general_data(df, filename, dir_missing_npis)
     else:
@@ -396,13 +403,18 @@ def clean_op_data(
     assert 'Onc_Prescriber' in df.columns
 
     # Remove decimals from cols
-    df['Prostate_Drug_Type'] = df['Prostate_Drug_Type'].astype(float).astype(int).astype(str)
-    df['Onc_Prescriber'] = df['Onc_Prescriber'].astype(float).astype(int).astype(str)
-    # df['Covered_Recipient_Profile_ID'] = df['Covered_Recipient_Profile_ID'].astype(float).astype(int).astype(str)
-    df['Covered_Recipient_Profile_ID'] = df['Covered_Recipient_Profile_ID'].apply(
-        lambda x: str(int(x)) if pd.notna(x) else x
+    df['Prostate_Drug_Type'] = df['Prostate_Drug_Type'].apply(
+        lambda x: str(int(float(x))) if pd.notna(x) and str(x).strip() != '' else x
         )
-
+    
+    df['Onc_Prescriber'] = df['Onc_Prescriber'].apply(
+        lambda x: str(int(float(x))) if pd.notna(x) and str(x).strip() != '' else x
+        )
+    
+    df['Covered_Recipient_Profile_ID'] = df['Covered_Recipient_Profile_ID'].apply(
+        lambda x: str(int(float(x))) if pd.notna(x) and str(x).strip() != '' else x
+        )
+    
     # fill all nan with ''
     df.fillna('', inplace=True)
     
@@ -420,6 +432,7 @@ def run_op_cleaner(file_to_clean, dataset_type, year, year2npis_path):
 
     # fileout = f"data/final_files/{dataset_type}_payments/{dataset_type}_{year}.csv"
     fileout = f"data/final_files/{dataset_type}_payments/{dataset_type}_{year}_apr14.csv"
+    filename = fileout.split("/")[-1]
     path_to_harmonized_cols =f"data/reference/col_names/{dataset_type}_payments/grace_cols.csv"
     path_providers_npis_ids = "data/reference/providers_npis_ids.csv"
     dir_missing_npis = f"data/final_files/{dataset_type}_payments/missing_npis/"
@@ -427,6 +440,7 @@ def run_op_cleaner(file_to_clean, dataset_type, year, year2npis_path):
     clean_op_data(
         file_to_clean,
         fileout,
+        filename,
         year,
         npi_set,
         dataset_type,

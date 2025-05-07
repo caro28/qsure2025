@@ -5,6 +5,7 @@ from src.clean_final_tables import (
     add_npis_2014, 
     build_map_year2cols, 
     build_ref_data_maps,
+    clean_op_data,
     get_harmonized_drug_cols,
     get_prostate_drug_type, 
     harmonize_col_names,
@@ -330,27 +331,170 @@ class TestAddNpis2014:
         assert set(result['Other_Col'].values) == set(expected_result['Other_Col'].values)
 
 
-# TODO: mock args
 class TestCleanOpData:
-    def test_clean_op_data_general(tmp_path):
+    def test_clean_op_data_general(self, tmp_path):
         test_data = pd.DataFrame({
             'Covered_Recipient_NPI': ['123', '456', '789'],
-            'Other_Col': [0, 1, 2]
+            'Covered_Recipient_Profile_ID': ['1', '2', '3'],
+            'Name_of_Drug_or_Biological_or_Device_or_Medical_Supply_1': ['Trelstar', 'Pluvicto', 'DRUG_C'],
+            'Name_of_Drug_or_Biological_or_Device_or_Medical_Supply_2': ['DRUG_D', '', 'Rubraca'],
         })
         test_data.to_csv(tmp_path / "test_data.csv", index=False)
-
         path_file_to_clean = tmp_path / "test_data.csv"
-        fileout = tmp_path / "test_clean_op_data.csv"
 
-        year = 2014
-        npi_set = ['123', '456', '789']
+        fileout_final_file = tmp_path / "test_cleaned_op_data.csv"
+        filename = "test_cleaned_op_data.csv"
+
+        year = 2016
+        npi_set = ['123', '456']
         dataset_type = 'general'
 
-        path_to_harmonized_cols = tmp_path / "test_grace_cols.csv"
+        harmonized_cols = pd.DataFrame({
+            '2016': ['Covered_Recipient_NPI',
+                     'Covered_Recipient_Profile_ID',
+                     'Drug_Biological_Device_Med_Sup_1',
+                     'Drug_Biological_Device_Med_Sup_2',
+                     ]
+        })
+        harmonized_cols.to_csv(tmp_path / "test_harmonized_cols.csv", index=False)
+        path_to_harmonized_cols = tmp_path / "test_harmonized_cols.csv"
+
+        providers_npis_ids = pd.DataFrame({
+            'Covered_Recipient_Profile_ID': ['1', '2', '3'],
+            'Covered_Recipient_NPI': ['123', '456', '789']
+        })
+        providers_npis_ids.to_csv(tmp_path / "test_providers_npis_ids.csv", index=False)
         path_providers_npis_ids = tmp_path / "test_providers_npis_ids.csv"
 
         dir_missing_npis = tmp_path / "test_missing_npis"
         dir_missing_npis.mkdir(parents=True, exist_ok=True)
         
+        clean_op_data(
+            path_file_to_clean,
+            fileout_final_file,
+            filename,
+            year,
+            npi_set,
+            dataset_type,
+            path_to_harmonized_cols,
+            path_providers_npis_ids,
+            dir_missing_npis
+        )
+        
+        result = pd.read_csv(fileout_final_file).fillna('')
+        
+        expected_result = pd.DataFrame({
+            'Covered_Recipient_NPI': ['123', '456', '789'],
+            'Covered_Recipient_Profile_ID': ['1', '2', '3'],
+            'Drug_Biological_Device_Med_Sup_1': ['Trelstar', 'Pluvicto', 'DRUG_C'],
+            'Drug_Biological_Device_Med_Sup_2': ['DRUG_D', '', 'Rubraca'],
+            'Drug_Name': ['triptorelin', 'psmalutetium177', 'rucaparib'],
+            'Prostate_Drug_Type': [1, 0, 1],
+            'Onc_Prescriber': [1, 0, 0]
+        })
         
 
+        assert fileout_final_file.exists()
+        assert result.columns.to_list() == expected_result.columns.to_list()
+        assert set(result['Drug_Name'].values) == set(expected_result['Drug_Name'].values)
+        assert set(result['Prostate_Drug_Type'].values) == set(expected_result['Prostate_Drug_Type'].values)
+        assert set(result['Onc_Prescriber'].values) == set(expected_result['Onc_Prescriber'].values)
+    
+    def test_clean_op_data_research(self, tmp_path):
+        test_data = pd.DataFrame({
+            'Covered_Recipient_NPI': ['123', '', ''],
+            'Covered_Recipient_Profile_ID': ['1', '', ''],
+            'Principal_Investigator_1_Profile_ID': ['', '2', ''],
+            'Principal_Investigator_1_NPI': ['', '456', ''],
+            'Principal_Investigator_2_Profile_ID': ['', '', '3'],
+            'Principal_Investigator_2_NPI': ['', '', '789'],
+            'Principal_Investigator_3_Profile_ID': ['', '', ''],
+            'Principal_Investigator_3_NPI': ['', '', ''],
+            'Principal_Investigator_4_Profile_ID': ['', '', ''],
+            'Principal_Investigator_4_NPI': ['', '', ''],
+            'Principal_Investigator_5_Profile_ID': ['', '', ''],
+            'Principal_Investigator_5_NPI': ['', '', ''],
+            'Name_of_Drug_or_Biological_or_Device_or_Medical_Supply_1': ['Trelstar', 'Pluvicto', 'DRUG_C'],
+            'Name_of_Drug_or_Biological_or_Device_or_Medical_Supply_2': ['DRUG_D', '', 'Rubraca'],
+        })
+        test_data.to_csv(tmp_path / "test_data.csv", index=False)
+        path_file_to_clean = tmp_path / "test_data.csv"
+
+        fileout_final_file = tmp_path / "test_cleaned_op_data.csv"
+        filename = "test_cleaned_op_data.csv"
+
+        year = 2016
+        npi_set = ['123', '456']
+        dataset_type = 'research'
+
+        harmonized_cols = pd.DataFrame({
+            '2016': ['Covered_Recipient_NPI',
+                     'Covered_Recipient_Profile_ID',
+                     'PI_1_Profile_ID',
+                     'PI_1_NPI',
+                     'PI_2_Profile_ID',
+                     'PI_2_NPI',
+                     'PI_3_Profile_ID',
+                     'PI_3_NPI',
+                     'PI_4_Profile_ID',
+                     'PI_4_NPI',
+                     'PI_5_Profile_ID',
+                     'PI_5_NPI',
+                     'Drug_Biological_Device_Med_Sup_1',
+                     'Drug_Biological_Device_Med_Sup_2',
+                     ]
+        })
+        harmonized_cols.to_csv(tmp_path / "test_harmonized_cols.csv", index=False)
+        path_to_harmonized_cols = tmp_path / "test_harmonized_cols.csv"
+
+        providers_npis_ids = pd.DataFrame({
+            'Covered_Recipient_Profile_ID': ['1', '2', '3'],
+            'Covered_Recipient_NPI': ['123', '456', '789']
+        })
+        providers_npis_ids.to_csv(tmp_path / "test_providers_npis_ids.csv", index=False)
+        path_providers_npis_ids = tmp_path / "test_providers_npis_ids.csv"
+
+        dir_missing_npis = tmp_path / "test_missing_npis"
+        dir_missing_npis.mkdir(parents=True, exist_ok=True)
+        
+        clean_op_data(
+            path_file_to_clean,
+            fileout_final_file,
+            filename,
+            year,
+            npi_set,
+            dataset_type,
+            path_to_harmonized_cols,
+            path_providers_npis_ids,
+            dir_missing_npis
+        )
+        
+        result = pd.read_csv(fileout_final_file).fillna('')
+        
+        # TODO: is this the expected behavior?
+        expected_result = pd.DataFrame({
+            'Covered_Recipient_NPI': ['123', '', ''],
+            'Covered_Recipient_Profile_ID': ['1', '', ''],
+            'PI_1_Profile_ID': ['', '2', ''],
+            'PI_1_NPI': ['', '456', ''],
+            'PI_2_Profile_ID': ['', '', '3'],
+            'PI_2_NPI': ['', '', '789'],
+            'PI_3_Profile_ID': ['', '', ''],
+            'PI_3_NPI': ['', '', ''],
+            'PI_4_Profile_ID': ['', '', ''],
+            'PI_4_NPI': ['', '', ''],
+            'PI_5_Profile_ID': ['', '', ''],
+            'PI_5_NPI': ['', '', ''],
+            'Drug_Biological_Device_Med_Sup_1': ['Trelstar', 'Pluvicto', 'DRUG_C'],
+            'Drug_Biological_Device_Med_Sup_2': ['DRUG_D', '', 'Rubraca'],
+            'Drug_Name': ['triptorelin', 'psmalutetium177', 'rucaparib'],
+            'Prostate_Drug_Type': [1, 0, 1],
+            'Onc_Prescriber': [1, 0, 0]
+        })
+        
+
+        assert fileout_final_file.exists()
+        assert result.columns.to_list() == expected_result.columns.to_list()
+        assert set(result['Drug_Name'].values) == set(expected_result['Drug_Name'].values)
+        assert set(result['Prostate_Drug_Type'].values) == set(expected_result['Prostate_Drug_Type'].values)
+        assert set(result['Onc_Prescriber'].values) == set(expected_result['Onc_Prescriber'].values)
