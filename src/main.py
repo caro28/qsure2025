@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 
 from src._utils import (
@@ -8,6 +9,7 @@ from src._utils import (
 
 from src.filter_op import (
     filter_open_payments,
+    get_op_raw_path,
 )
 
 from src.clean_final_tables import (
@@ -32,7 +34,15 @@ def main():
         for year in years:
             start_time = time.time()
             logger.info("Processing %s, %s", dataset_type, year)
-            filter_open_payments(year, dataset_type, prostate_drug_list_path)
+            # get op data file
+            op_data_path = get_op_raw_path(year, dataset_type)
+            # get dir to save filtered chunks
+            dir_out = f"data/filtered/{dataset_type}_payments/{year}_chunks/"
+            os.makedirs(dir_out, exist_ok=True)
+            # filter op data
+            filter_open_payments(
+                year, dataset_type, prostate_drug_list_path, op_data_path, dir_out
+                )
             logger.info("Finished filtering %s payments for %s", dataset_type, year)
             # Concatenate filtered chunks and save to full file
             op_chunks_dirs = f"data/filtered/{dataset_type}_payments/{year}_chunks/"

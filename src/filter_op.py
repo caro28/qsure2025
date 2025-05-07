@@ -120,9 +120,10 @@ def find_matches_op(chunk, drug_cols, ref_drug_names):
             if drug_name == tgt_name:  # If we found a match in drug_names loop
                 break  # Break out of col loop to move to next row, else move to next column
     filtered_chunk = chunk.loc[chunk_row_idx] # using row labels, not positions, so changed from iloc to loc
+    print(f"$$$$$$$$$$$$$ filtered_chunk: {filtered_chunk}")
     return filtered_chunk
 
-def filter_open_payments(year, dataset_type, ref_path):
+def filter_open_payments(year, dataset_type, ref_path, op_path, dir_out):
     """
     Filter Open Payments data for a given year and dataset type, keeping only
      rows that contain the drug names in ProstateDrugList.csv.
@@ -139,8 +140,8 @@ def filter_open_payments(year, dataset_type, ref_path):
     ref_drug_names = get_ref_drug_names(ref_path)
 
     # # Load OP data for year/type
-    op_path = get_op_raw_path(year, dataset_type)
-    logger.info("Raw data file: %s", op_path)
+    # op_path = get_op_raw_path(year, dataset_type) ####################
+    # logger.info("Raw data file: %s", op_path) ########################
     # load csv in chunks
     chunksize = 100_000
     chunks = pd.read_csv(op_path, chunksize=chunksize, dtype=str)
@@ -148,8 +149,8 @@ def filter_open_payments(year, dataset_type, ref_path):
     # Get drug columns
     op_drug_cols = get_op_drug_columns(pd.read_csv(op_path, nrows=1), year)
     # create dir_out if doesn't exist
-    dir_out = f"data/filtered/{dataset_type}_payments/{year}_chunks/"
-    os.makedirs(dir_out, exist_ok=True)
+    # dir_out = f"data/filtered/{dataset_type}_payments/{year}_chunks/" #####################
+    # os.makedirs(dir_out, exist_ok=True) #############################
 
     logger.info("Looking for matches")
     total_matched_rows = 0

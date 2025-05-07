@@ -146,18 +146,43 @@ class TestFindMatchesOp():
 
 class TestFilterOpenPayments():
     def test_filter_open_payments_2016_2023(self, tmp_path):
-        # year = 2022
-        # dataset_type = "general"
-        # ref_path = "data/raw/ProstateDrugList.csv"
+        year = 2022
+        dataset_type = "general"
+        ref_path = "data/reference/ProstateDrugList.csv"
 
-        # test_data = {
-        # "name_of_drug_or_biological_or_device_or_medical_supply_1": ["Lynparza", "drug1", "EnzalutAmide", "drug2"],
-        # "name_of_drug_or_biological_or_device_or_medical_supply_2": ["drug3", "tylenol", "jevtana", "drug4"],
-        # "other_column": ["other1", "other2", "other3", "other4"]
-        # }
-        # pd.DataFrame(test_data).to_csv(tmp_path / "ProstateDrugList.csv", index=False)
+        test_data = {
+        "name_of_drug_or_biological_or_device_or_medical_supply_1": [
+            "Lynparza", "drug1", "EnzalutAmide", "drug2"
+            ],
+        "name_of_drug_or_biological_or_device_or_medical_supply_2": [
+            "drug3", "tylenol", "jevtana", "drug4"
+            ],
+        "other_column": [
+            "other0", "other1", "other2", "other3"
+            ]
+        }
+        pd.DataFrame(test_data).to_csv(tmp_path / "test_filter_op_file.csv", index=False)
+        op_path = tmp_path / "test_filter_op_file.csv"
+        dir_out = tmp_path / "test_filter_op_chunks"
+        dir_out.mkdir()
 
-        pass
+        # run function (add "/" to end of dir_out because function expects dir_out to end with "/")
+        filter_open_payments(year, dataset_type, ref_path, op_path, f"{dir_out}/")
+        
+        # index=False when writing to csv, so index is reset (index != [0,2])
+        expected_chunk = pd.DataFrame(
+            {
+                "name_of_drug_or_biological_or_device_or_medical_supply_1": ["Lynparza", "EnzalutAmide"],
+                "name_of_drug_or_biological_or_device_or_medical_supply_2": ["drug3", "jevtana"],
+                "other_column": ["other0", "other2"]
+            }
+        )
+
+        # Check that the filtered chunks were created
+        assert os.path.exists(dir_out / "general_2022_chunk_0.csv")
+        filtered_chunk = pd.read_csv(dir_out / "general_2022_chunk_0.csv")
+        assert filtered_chunk.equals(expected_chunk)
+
 
 
 
