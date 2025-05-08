@@ -1,10 +1,5 @@
-import unittest
-from unittest import mock
-from unittest.mock import patch, mock_open
 import pandas as pd
-import tempfile
 import os
-import shutil
 
 import pytest
 
@@ -184,73 +179,3 @@ class TestFilterOpenPayments():
         assert filtered_chunk.equals(expected_chunk)
 
 
-
-
-
-# class TestFilterOpenPayments(unittest.TestCase):
-#     def setUp(self):
-#         # Sample test data with lowercase names (cleaned format)
-#         self.test_drugs = pd.DataFrame({
-#             'brand_name': ['lynparza', 'keytruda'],
-#             'generic_name': ['enzalutamide', 'pembrolizumab']
-#         })
-        
-#         # Sample OpenPayments data
-#         self.test_op_data = pd.DataFrame({
-#             'Name_of_Drug_or_Biological_or_Device_or_Medical_Supply_1': ['Lynparza', 'Keytruda', 'Enzalutamide', 'Pembrolizumab'],
-#             'payment_amount': [100, 200, 300, 400]
-#         })
-
-#     @patch('src.filter_op.get_ref_drug_names')
-#     @patch('src.filter_op.get_op_raw_path')
-#     @patch('src.filter_op.pd.read_csv')
-#     @patch('builtins.open', new_callable=mock_open)
-#     def test_filter_open_payments_matches(self, mock_file, mock_read_csv, mock_get_path, mock_get_drugs):
-#         # Setup mocks with lowercase drug names
-#         mock_get_drugs.return_value = set(['lynparza', 'keytruda', 'enzalutamide', 'pembrolizumab'])
-#         mock_get_path.return_value = 'dummy/path'
-#         # Mock read_csv to return a DataFrame for the nrows=1 call
-#         # and an iterator of DataFrames for the chunksize calls
-#         def read_csv_side_effect(*args, **kwargs):
-#             if kwargs.get('nrows') == 1:
-#                 return self.test_op_data.head(1)
-#             elif kwargs.get('chunksize'):
-#                 return iter([self.test_op_data])
-#             else:
-#                 return self.test_op_data
-
-#         mock_read_csv.side_effect = read_csv_side_effect
-
-#         # Run function
-#         filter_open_payments(2020, 'General')
-
-#         # Assert that the correct number of matches were found
-#         # In this case, we expect 3 matches (Lynparza, Keytruda, Enzalutamide)
-#         self.assertEqual(mock_file.call_count, 1)  # One file should be written
-        
-#     @patch('src.filter_op.get_ref_drug_names')
-#     @patch('src.filter_op.get_op_raw_path')
-#     @patch('src.filter_op.pd.read_csv')
-#     @patch('builtins.open', new_callable=mock_open)
-#     def test_filter_open_payments_no_matches(self, mock_file, mock_read_csv, mock_get_path, mock_get_drugs):
-#         # Setup mocks with no matching drugs
-#         mock_get_drugs.return_value = set(['UnrelatedDrug1', 'UnrelatedDrug2'])
-#         mock_get_path.return_value = 'dummy/path'
-#         def read_csv_side_effect(*args, **kwargs):
-#             if kwargs.get('nrows') == 1:
-#                 return self.test_op_data.head(1)
-#             elif kwargs.get('chunksize'):
-#                 return iter([self.test_op_data])
-#             else:
-#                 return self.test_op_data
-
-#         # Run function
-#         filter_open_payments(2020, 'General')
-
-#         # Assert that no files were written since there were no matches
-#         self.assertEqual(mock_file.call_count, 0)
-
-
-
-if __name__ == '__main__':
-    unittest.main()

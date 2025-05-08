@@ -1,11 +1,11 @@
 import json
 import pandas as pd
+
 from src.filter_prescribers import (
     add_years_to_raw_prescriber_chunks,
     find_matches_prescribers,
     filter_prescribers_by_drug_names,
     get_final_npis,
-    get_set_npis,
 )
 
 
@@ -50,11 +50,9 @@ def test_add_years_to_raw_prescriber_chunks(tmp_path):
 
         # Convert both to strings for comparison
         assert all(result_df['Year'].astype(str) == str(expected_year))
-
-        # Check original columns are preserved
-        original_cols = test_files[filename].columns
-        for col in original_cols:
-            assert col in result_df.columns
+        
+        # Check columns from test_files are present in result_df
+        assert set(test_files[filename].columns.to_list()) | {'Year'} == set(result_df.columns.to_list())
         
         # Check number of rows is the same
         assert len(result_df) == len(test_files[filename])
@@ -70,13 +68,13 @@ class TestFindMatchesPrescribers():
         chunk = pd.DataFrame({
             'Brnd_Name': ['bicalutamide', 'aspirin', 'enzalutamide', 'tylenol'],
             'Gnrc_Name': ['drug1', 'drug2', 'drug3', 'bicalutamide'],
-            'Other_Col': [1, 2, 3, 4]
+            'Other_Col': [0, 1, 2, 3]
         })
 
         # run function
         filtered_chunk = find_matches_prescribers(chunk, drug_cols, ref_drug_names)
         assert len(filtered_chunk) == 3
-        assert filtered_chunk['Other_Col'].to_list() == [1, 3, 4]
+        assert filtered_chunk['Other_Col'].to_list() == [0, 2, 3]
     
     def test_find_matches_prescribers_empty(self):
         # mock ref_drug_names

@@ -1,5 +1,4 @@
 import pandas as pd
-import pytest
 from src.clean_final_tables import (
     add_new_columns,
     add_npis_2014, 
@@ -198,8 +197,8 @@ def test_prep_general_data(tmp_path):
 def test_prep_research_data(tmp_path):
     test_df = pd.DataFrame({
         'Covered_Recipient_NPI': ['123', pd.NA, '456', '789', pd.NA],
-        'Principal_Investigator_1_NPI': [pd.NA, '321.0', '654.0', '987.0', pd.NA],
-        'Principal_Investigator_2_NPI': ['111.0', pd.NA, '222.0', '333', pd.NA],
+        'PI_1_NPI': [pd.NA, '321.0', '654.0', '987.0', pd.NA],
+        'PI_2_NPI': ['111.0', pd.NA, '222.0', '333', pd.NA],
         'Other_Col': [0, 1, 2, 3, 4]
     })
 
@@ -211,15 +210,15 @@ def test_prep_research_data(tmp_path):
 
     expected_result = pd.DataFrame({
         'Covered_Recipient_NPI': ['123', pd.NA, '456', '789'],
-        'Principal_Investigator_1_NPI': [pd.NA, '321', '654', '987'],
-        'Principal_Investigator_2_NPI': ['111', pd.NA, '222', '333'],
+        'PI_1_NPI': [pd.NA, '321', '654', '987'],
+        'PI_2_NPI': ['111', pd.NA, '222', '333'],
         'Other_Col': [0, 1, 2, 3]
     })
 
     assert set(result.columns.to_list()) == set(expected_result.columns.to_list())
     assert set(result['Covered_Recipient_NPI'].values) == set(expected_result['Covered_Recipient_NPI'].values)
-    assert set(result['Principal_Investigator_1_NPI'].values) == set(expected_result['Principal_Investigator_1_NPI'].values)
-    assert set(result['Principal_Investigator_2_NPI'].values) == set(expected_result['Principal_Investigator_2_NPI'].values)
+    assert set(result['PI_1_NPI'].values) == set(expected_result['PI_1_NPI'].values)
+    assert set(result['PI_2_NPI'].values) == set(expected_result['PI_2_NPI'].values)
     assert set(result['Other_Col'].values) == set(expected_result['Other_Col'].values)
 
 
@@ -392,7 +391,6 @@ class TestCleanOpData:
             'Prostate_Drug_Type': [1, 0, 1],
             'Onc_Prescriber': [1, 0, 0]
         })
-        
 
         assert fileout_final_file.exists()
         assert result.columns.to_list() == expected_result.columns.to_list()
@@ -471,7 +469,6 @@ class TestCleanOpData:
         
         result = pd.read_csv(fileout_final_file).fillna('')
         
-        # TODO: is this the expected behavior?
         expected_result = pd.DataFrame({
             'Covered_Recipient_NPI': ['123', '', ''],
             'Covered_Recipient_Profile_ID': ['1', '', ''],
@@ -491,7 +488,6 @@ class TestCleanOpData:
             'Prostate_Drug_Type': [1, 0, 1],
             'Onc_Prescriber': [1, 0, 0]
         })
-        
 
         assert fileout_final_file.exists()
         assert result.columns.to_list() == expected_result.columns.to_list()
