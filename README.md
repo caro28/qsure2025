@@ -31,7 +31,7 @@ Manually [downloaded](https://www.cms.gov/priorities/key-initiatives/open-paymen
 2. Prescribers
 Manually [downloaded](https://data.cms.gov/provider-summary-by-type-of-service/medicare-part-d-prescribers/medicare-part-d-prescribers-by-provider-and-drug) in chunks by prescriber type (Radiation Oncology, Hematology-Oncology, Medical Oncology, Hematology, Urology) because of limited filtering functionality through API.
 
-# Code
+# Code (in folder src)
 1. main.py
 
 Summary: Filters OP csv files, then adds columns using the filtered Prescriber Part D data and saves final files to csv.
