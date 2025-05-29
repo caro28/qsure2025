@@ -1,11 +1,11 @@
 # Project Summary
-* Get filtered data from two CMS databases (Open Payments and Part D Prescribers)
+* Get filtered data from two CMS databases ([Open Payments](https://openpaymentsdata.cms.gov/) and [Medicare Part D Prescribers - by Provider and Drug](https://data.cms.gov/provider-summary-by-type-of-service/medicare-part-d-prescribers/medicare-part-d-prescribers-by-provider-and-drug))
 * Clean and merge the datasets for every year (2014-2023)
 * Add new columns for downstream analysis
 
 ## Filtering Conditions
 ### Open Payments (OP)
-* Get all rows with drug names matching those in data/reference/ProstateDrugList.csv
+* Get all rows with drug names matching the generic and brand names in data/reference/ProstateDrugList.csv
 * Filter two OP databases: General and Research
 
 ### Prescribers
