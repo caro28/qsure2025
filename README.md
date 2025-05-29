@@ -32,8 +32,26 @@ Manually [downloaded](https://www.cms.gov/priorities/key-initiatives/open-paymen
 Manually [downloaded](https://data.cms.gov/provider-summary-by-type-of-service/medicare-part-d-prescribers/medicare-part-d-prescribers-by-provider-and-drug) in chunks by prescriber type (Radiation Oncology, Hematology-Oncology, Medical Oncology, Hematology, Urology) because of limited filtering functionality through API.
 
 # Code
-## Filtering, Cleaning, Merging
-1. filter_prescribers.py
+1. main.py
+
+Summary: Filters OP csv files, then adds columns using the filtered Prescriber Part D data and saves final files to csv.
+
+Inputs: 
+* Raw annual General and Research OP csv files (manually downloaded)
+* Filtered Prescribers Part D data outputted by filter_prescribers.py (data/filtered/prescribers/prescribers_year2npis.json)
+
+Steps:
+* For every annual General and Research csv file:
+  * In 100k chunks, filters the csv file keeping rows that match the OP filtering condition. Any matching rows per chunks are saved to csv as chunks are processed.
+  * Concatenates the filtered chunks into 1 file per year.
+  * Cleans and enhances the file by harmonizing column names and adding three new columns (Prostate_Drug_Type, Onc_Prescriber, Drug_Name)
+  * Saves the final file to csv
+
+Output: csv files containing the final annual dataset
+
+2. filter_prescribers.py
+
+Summary: Filters Prescriber Part D data and produces a JSON file saving NPIs by year
 
 Input: Prescriber chunks by prescriber type (manually downloaded)
 
@@ -45,12 +63,26 @@ Steps:
 Output: JSON file mapping "Year" : List of unique NPIs
 
 3. filter_op.py
+
+Contains all functions used for filtering OP data. Runner function called in main.py is filter_open_payments.
+
 4. clean_final_tables.py
 
-## Others
-1. _utils.py
+Contains all functions used for cleaning and enhancing the filtered OP data files. Runner function called in main.py is run_op_cleaner.
 
-2. fix_final_generic_names.py
-* Will be added to clean_final_tables.py and then deleted
+5. fix_final_generic_names.py
 
-3. _op_eda.py
+Fixes the formatting of the generic names in the Drug_Name column added in main.py.
+
+6. get_providers.py
+
+Gets data needed to add missing NPIs for 2014 from CMS' [Covered Recipient Profile Supplement](https://openpaymentsdata.cms.gov/dataset/23160558-6742-54ff-8b9f-cac7d514ff4e)
+
+Input: manually downloaded raw data
+
+Output: csv with 2 columns, 'Covered_Recipient_Profile_ID', 'Covered_Recipient_NPI'
+
+7. _utils.py
+
+General helper functions used across all files
+
