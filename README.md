@@ -16,6 +16,7 @@
 * Then filter for these drugs: bicalutamide, abiraterone, enzalutamide, apalutamide, or darolutamide
 * Of these, get the unique NPIs, per year, for which the following is true:
     * Any of the following drugs was prescribed in 3 consecutive years: bicalutamide, abiraterone, enzalutamide, apalutamide, or darolutamide
+    * E.g. for 2022, get the NPIs that prescribed at least one of the five drugs above in 2019, 2020, and 2021. (Does not need to be the same drug across the three years.)
 * For every year, build a map of "Year" : "List of unique NPIs" that meet this condition
 
 ## Final Dataset
