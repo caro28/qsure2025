@@ -34,12 +34,16 @@ Manually [downloaded](https://data.cms.gov/provider-summary-by-type-of-service/m
 # Code
 ## Filtering, Cleaning, Merging
 1. filter_prescribers.py
+
 Input: Prescriber chunks by prescriber type (manually downloaded)
+
 Steps:
 * Add year column to each chunk, then concatenate into one file
 * Filter the full file (in chunks of 100k rows) keeping rows with values in columnd 'Brnd_Name' or 'Gnrc_Name' that match any of 'bicalutamide', 'abiraterone', 'enzalutamide', 'apalutamide', 'darolutamide'
 * Get all NPIs that match the Prescribers filtering condition.
+
 Output: JSON file mapping "Year" : List of unique NPIs
+
 3. filter_op.py
 4. clean_final_tables.py
 
