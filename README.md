@@ -5,8 +5,11 @@
 
 ## Filtering Conditions
 ### Open Payments (OP)
-* Get all rows with drug names matching the generic and brand names in data/reference/ProstateDrugList.csv
-* Filter two OP databases: General and Research
+* Get all rows with a drug name matching any of the generic and brand names in data/reference/ProstateDrugList.csv
+* OP drug name columns start with:
+   * 2014-2015: "Name_of_Associated_Covered_Drug_or_Biological", "Name_of_Associated_Covered_Device_or_Medical_Supply"
+   * 2016-2023: "Name_of_Drug_or_Biological_or_Device_or_Medical_Supply_"
+* Filter two OP databases: General and Research (not Ownership)
 
 ### Prescribers
 * Filter by prescriber type: Radiation Oncology, Hematology-Oncology, Medical Oncology, Hematology, Urology
